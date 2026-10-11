@@ -1,0 +1,23 @@
+# Generated reports and inventory dumps - contain infrastructure details
+*.xlsx
+inventory*.json
+HVMTools_*.xlsx
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local secrets
+.env
