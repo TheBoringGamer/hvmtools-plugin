@@ -1,7 +1,7 @@
 # CLAUDE.md — HVMTools project context
 
 ## What this is
-HVMTools is a single-file Python CLI (`hvmtools.py`) that connects to an **HPE Morpheus VM Essentials (VME/HVM) manager** via the Morpheus REST API, collects a full inventory, and writes an **RVTools-style Excel workbook**. It is intended to be the VME equivalent of RVTools (VMware) / HVTools (Hyper-V). It is read-only (GET calls only, plus OAuth login).
+HVMTools is a single-file Python CLI (`hvmtools.py`) that connects to an **HPE Morpheus VM Essentials (VME/HVM) manager** via the Morpheus REST API, collects a full inventory, and writes an **RVTools-style Excel workbook**. It is intended to be the VME equivalent of RVTools (VMware). It is read-only (GET calls only, plus OAuth login).
 
 - Author / copyright holder: **Graham Fairbank** (use this name in all copyright notices)
 - License: MIT (`LICENSE`, plus SPDX header in `hvmtools.py`)
@@ -44,8 +44,7 @@ API field names were mapped from Morpheus API knowledge and may differ by VME ve
 1. **vMemory usage columns blank** (Consumed MiB, Free MiB, Usage %) on a real manager. Fix implemented but **not yet verified against a real manager** (tested with a stubbed client only): `collect()` calls `GET /api/servers/{id}` in the thread pool for servers missing `stats.usedMemory` and merges `server.stats` + top-level `stats` into the record; `build_sheets()` `stat()` falls back to instance stats for single-VM instances. Also feeds vCPU *CPU Usage %* and vInfo *In Use MiB*. If columns are still blank, check the stats field names in `raw_servers` / `raw_instances`.
 2. Validate datastore/GFS2 field mappings (Type, Address, Path) against a real `raw_datastores` sheet.
 3. Validate host hardware fields (CPU model, vendor, model, serial) against real `raw_servers`.
-4. README: replace `<your-org>` in the clone URL; consider adding "for HPE VM Essentials (not Hyper-V)" near the top to avoid confusion with HVTools.
-5. Possible future work: zero-dependency/standalone packaging (stdlib-only rewrite, vendored zipapp, or PyInstaller) for air-gapped jump boxes.
+4. Possible future work: zero-dependency/standalone packaging (stdlib-only rewrite, vendored zipapp, or PyInstaller) for air-gapped jump boxes.
 
 ## Conventions
 - Keep it a single, readable script; tolerate missing fields rather than failing.

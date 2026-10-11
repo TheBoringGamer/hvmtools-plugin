@@ -34,7 +34,7 @@ It is intended for VMware-to-VME migration assessments, capacity planning, audit
 ## Installation
 
 ```bash
-git clone https://github.com/<your-org>/hvmtools.git
+git clone https://github.com/grahamfairbank/hvmtools.git
 cd hvmtools
 pip install -r requirements.txt
 ```
