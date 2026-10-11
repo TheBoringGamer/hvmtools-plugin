@@ -46,13 +46,16 @@ Despite the `scope=write` parameter (required by the Morpheus token endpoint), H
 | `GET /api/clusters/{id}/datastores` | Datastores on each cluster's Storage tab (GFS2, OCFS2, NFS, local) |
 | `GET /api/zones/{id}/data-stores` | Cloud-level datastores |
 | `GET /api/servers` | VMs and hypervisor hosts, with volumes and interfaces |
+| `GET /api/servers/{id}` | Usage stats, only for servers whose list record has no `stats.usedMemory` (skipped with `--no-stats`) |
 | `GET /api/instances` | Morpheus instances |
 | `GET /api/instances/{id}/snapshots` | Snapshots (skipped with `--no-snapshots`) |
 | `GET /api/networks` | Networks |
 
 List endpoints are paged with `max` and `offset` until `meta.total` items have been read. If an endpoint returns an HTTP error (for example 403 because the account lacks a permission), a warning is printed and collection continues with that data empty. A 401 stops the run, since it means the credentials or token are invalid.
 
-Snapshot queries run in parallel (`--workers`, default 8) because they need one call per instance.
+Snapshot queries run in parallel (`--workers`, default 8) because they need one call per instance. The per-server usage stats queries use the same thread pool.
+
+The server list view can omit the `stats` block, which leaves the usage columns (vMemory *Consumed MiB* / *Free MiB* / *Usage %*, vCPU *CPU Usage %*, vInfo *In Use MiB*) blank. For each server without `stats.usedMemory`, HVMTools reads the detail record and merges both `server.stats` and the top-level `stats` from that response into the server record, keeping any values the list already had. When building the sheets, a VM that still has no value falls back to its instance's `stats`, but only if the instance has exactly one VM.
 
 ## Matching objects together
 

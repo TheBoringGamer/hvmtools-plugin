@@ -42,8 +42,11 @@ If **vInfo** is empty but **vHost** has rows, every server was classified as a h
 
 *Size MiB* comes from the VM's configuration, but *Consumed MiB*, *Free MiB* and *Usage %* need live usage stats (`stats.usedMemory`). These are blank when:
 
-- the manager's server list doesn't include a `stats` block for the VM (check for `stats.usedMemory` in `raw_servers`), or
-- the VM has no usage data, typically because the Morpheus agent isn't installed or the VM is powered off.
+- the VM has no usage data on the manager, typically because the Morpheus agent isn't installed or the VM is powered off,
+- you ran with `--no-stats`, or
+- the per-server stats query failed (the console shows `warn: /api/servers/{id} -> HTTP ...`).
+
+When the manager's server list doesn't include usage stats, HVMTools fetches them per server from `GET /api/servers/{id}` and, failing that, uses the stats of the VM's instance. The console reports this as `Usage stats (N servers without stats in list view)` followed by `M of N returned memory usage`. If M is 0, run with `--raw` and check `raw_servers` for `stats.usedMemory`, and `raw_instances` for `stats.usedMemory`; if the manager reports usage under a different field name, open an issue with that information.
 
 The same applies to *CPU Usage %* in vCPU and *In Use MiB* in vInfo.
 
@@ -74,6 +77,7 @@ The VM's `parentServer` isn't set, or its host isn't listed in any cluster's `se
 ## Performance
 
 - The slowest part is usually snapshot collection on large environments. Use `--no-snapshots`, or raise `--workers` (e.g. `--workers 16`) if the manager can handle more parallel requests.
+- If the console shows `Usage stats (N servers without stats in list view)` with a large N, that is one extra API call per server. Use `--no-stats` to skip it; the usage columns will then be blank for those servers.
 - `--page-size` controls items per API call (default 100). Larger values mean fewer calls; reduce it if the manager times out on big pages.
 - To avoid querying the manager repeatedly while experimenting with the report, collect once with `--dump-json` and rebuild with `--from-json`.
 

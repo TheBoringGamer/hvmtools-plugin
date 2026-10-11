@@ -6,6 +6,7 @@ Conventions used below:
 
 - `server.*` is a record from `GET /api/servers` (VMs and hosts are both "servers" in Morpheus).
 - `instance.*` is a record from `GET /api/instances`.
+- `server.stats` comes from the server list; where the list has no `stats.usedMemory` for a server it is filled in from `GET /api/servers/{id}` (skipped with `--no-stats`). `instance.stats.*` is only used as a fallback when the instance has a single VM, since instance stats are totals across its VMs.
 - Where several fields are listed with `→`, the first one that has a value is used.
 - Sizes are converted from bytes to **MiB** (bytes ÷ 1,048,576, rounded).
 - Dates are converted to UTC and written as Excel dates.
@@ -36,7 +37,7 @@ A blank cell means the manager did not return that field for the object.
 | Disks | Count of `server.volumes` |
 | Total disk capacity MiB | Sum of `server.volumes[].maxStorage` |
 | Provisioned MiB | `server.maxStorage` |
-| In Use MiB | `server.stats.usedStorage` → `server.usedStorage` |
+| In Use MiB | `server.stats.usedStorage` → `server.usedStorage` → `instance.stats.usedStorage` |
 | Primary IP Address | `server.internalIp` → `server.externalIp` → `server.sshHost` |
 | All IP Addresses | Internal, external and all NIC IPs, de-duplicated |
 | Network #1–#4 | Network names of the first four NICs |
@@ -72,7 +73,7 @@ A blank cell means the manager did not return that field for the object.
 |---|---|
 | VM, Powerstate | As vInfo |
 | CPUs, Sockets, Cores per Socket | As vInfo |
-| CPU Usage % | `server.stats.cpuUsage` |
+| CPU Usage % | `server.stats.cpuUsage` → `server.stats.usedCpu` → `instance.stats.cpuUsage` → `instance.stats.usedCpu` |
 | Plan | `server.plan.name` |
 | OS | As vInfo |
 | Host, Cluster, Cloud, VM ID | As vInfo |
@@ -83,13 +84,13 @@ A blank cell means the manager did not return that field for the object.
 |---|---|
 | VM, Powerstate | As vInfo |
 | Size MiB | Configured memory (as vInfo *Memory MiB*) |
-| Consumed MiB | `server.stats.usedMemory` → `server.usedMemory` |
+| Consumed MiB | `server.stats.usedMemory` → `server.usedMemory` → `instance.stats.usedMemory` |
 | Free MiB | Size − Consumed |
 | Usage % | Consumed ÷ Size × 100 |
 | Plan | `server.plan.name` |
 | Host, Cluster, Cloud, VM ID | As vInfo |
 
-*Consumed*, *Free* and *Usage %* require usage stats from the manager. See [Troubleshooting](TROUBLESHOOTING.md#vmemory-usage-columns-are-blank).
+*Consumed*, *Free* and *Usage %* require usage stats from the manager. If the `/api/servers` list omits them, they are read from `GET /api/servers/{id}` (skipped with `--no-stats`). See [Troubleshooting](TROUBLESHOOTING.md#vmemory-usage-columns-are-blank).
 
 ## vDisk — one row per VM disk
 

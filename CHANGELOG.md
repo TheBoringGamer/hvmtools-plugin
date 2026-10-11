@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Fixed
+- vMemory *Consumed MiB*, *Free MiB* and *Usage %* were blank on managers whose `/api/servers` list omits per-VM `stats`. Servers without `stats.usedMemory` are now read individually from `GET /api/servers/{id}` (in the `--workers` thread pool) and the stats merged in. The same fix fills vCPU *CPU Usage %* and vInfo *In Use MiB*.
+
+### Added
+- Fallback to the instance's `stats` for VMs that still have no usage figures (single-VM instances only).
+- vCPU *CPU Usage %* also accepts `stats.usedCpu`.
+- `--no-stats` to skip the per-server stats queries.
+
 ## [1.0.0] - 2026-10-01
 
 ### Added

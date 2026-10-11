@@ -25,11 +25,12 @@ CHANGELOG.md, LICENSE, requirements.txt, .gitignore (ignores *.xlsx, inventory*.
 - Helpers: `g()` safe nested get, `first()` first non-empty value, `mib()`, `pct()`, `parse_date()`, `power()` (on/off -> poweredOn/poweredOff), `fmt_tags()`, `flatten()` for raw sheets.
 - `MorpheusClient`: OAuth login `POST /oauth/token?grant_type=password&scope=write&client_id=morph-api` (form body username/password) or `--token`; `get()`; `list()` paginates with `max`/`offset` until `meta.total`. Non-401 HTTP errors on list calls warn and return empty; 401 exits.
 - `collect()`: `/api/ping`, `/api/whoami`, `/api/zones` (fallback `/api/clouds`), `/api/groups`, `/api/clusters` (+ `/api/clusters/{id}` if `servers` missing), `/api/servers`, `/api/instances`, `/api/networks`, datastores, and `/api/instances/{id}/snapshots` in a thread pool.
+  - Usage stats: `/api/servers/{id}` for servers whose list record lacks `stats.usedMemory` (skipped with `--no-stats`).
   - Datastores: `/api/clusters/{id}/datastores` (cluster Storage tab: GFS2, OCFS2, NFS, local) merged by id with `/api/zones/{id}/data-stores`. Cluster names stored in `_clusters` on each datastore record.
 - `build_sheets()`: hosts = servers with `computeServerType.vmHypervisor == true` OR referenced as another server's `parentServer`; everything else is a VM. Joins VM->host (`parentServer`), host->cluster (`cluster.servers`), VM->instance (`instance.servers` / `containers[].server.id`), disk->datastore (`datastoreId`), NIC->network.
 - `write_workbook()` / `write_sheet()`: Arial 10, dark-blue bold header, freeze `B2`, autofilter, auto widths (8-60), `#,##0` ints (not ID columns), `yyyy-mm-dd hh:mm` dates, vHealth rows shaded by severity, empty tabs show "No data returned".
 - Tabs: vInfo, vCPU, vMemory, vDisk, vNetwork, vSnapshot, vHost, vCluster, vDatastore, vNetworks, vInstance, vHealth, vSource; with `--raw`: raw_servers, raw_instances, raw_datastores.
-- CLI flags: `--url -u -p --token --insecure -o --no-snapshots --raw --dump-json --from-json --snapshot-age --page-size --workers`; env vars `MORPHEUS_URL/USER/PASS/TOKEN`.
+- CLI flags: `--url -u -p --token --insecure -o --no-snapshots --no-stats --raw --dump-json --from-json --snapshot-age --page-size --workers`; env vars `MORPHEUS_URL/USER/PASS/TOKEN`.
 - Sizes in MiB (RVTools convention); dates UTC. Default output `HVMTools_<host>_<YYYYMMDD_HHMM>.xlsx`.
 
 ## Testing
@@ -40,7 +41,7 @@ python hvmtools.py --from-json examples/sample-inventory.json -o /tmp/test.xlsx
 API field names were mapped from Morpheus API knowledge and may differ by VME version. Always use `first()`/`g()` fallbacks and confirm against `--raw` output from a real manager before changing mappings.
 
 ## Open items / known issues
-1. **vMemory usage columns blank** (Consumed MiB, Free MiB, Usage %) on a real manager. Likely cause: the `/api/servers` list view omits per-VM `stats`. Planned fix (not yet implemented): in `collect()`, for VMs where `stats.usedMemory` is missing, call `GET /api/servers/{id}` in the thread pool and merge its `stats` into the server record; fall back to instance stats. The same fix helps vCPU *CPU Usage %* and vInfo *In Use MiB*.
+1. **vMemory usage columns blank** (Consumed MiB, Free MiB, Usage %) on a real manager. Fix implemented but **not yet verified against a real manager** (tested with a stubbed client only): `collect()` calls `GET /api/servers/{id}` in the thread pool for servers missing `stats.usedMemory` and merges `server.stats` + top-level `stats` into the record; `build_sheets()` `stat()` falls back to instance stats for single-VM instances. Also feeds vCPU *CPU Usage %* and vInfo *In Use MiB*. If columns are still blank, check the stats field names in `raw_servers` / `raw_instances`.
 2. Validate datastore/GFS2 field mappings (Type, Address, Path) against a real `raw_datastores` sheet.
 3. Validate host hardware fields (CPU model, vendor, model, serial) against real `raw_servers`.
 4. README: replace `<your-org>` in the clone URL; consider adding "for HPE VM Essentials (not Hyper-V)" near the top to avoid confusion with HVTools.

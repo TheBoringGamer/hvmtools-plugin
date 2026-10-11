@@ -180,7 +180,7 @@ class MorpheusClient:
 
 
 # --------------------------------------------------------------------------- collection
-def collect(c, snapshots=True, workers=8):
+def collect(c, snapshots=True, stats=True, workers=8):
     inv = {"collected": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "manager": c.url}
     log("Connecting / ping")
     inv["ping"] = c.get("/api/ping", quiet=True) or {}
@@ -236,6 +236,33 @@ def collect(c, snapshots=True, workers=8):
             merge_ds(d, zone={"id": cl["id"], "name": cl.get("name")})
     inv["datastores"] = list(ds_by_id.values())
     log(f"  {len(inv['datastores'])} datastores")
+
+    # The /api/servers list view can omit usage stats; the detail view has them.
+    need = [s for s in inv["servers"]
+            if first(g(s, "stats", "usedMemory"), s.get("usedMemory")) is None]
+    if stats and need:
+        log(f"Usage stats ({len(need)} servers without stats in list view)")
+
+        def detail(s):
+            d = c.get(f"/api/servers/{s['id']}", quiet=True) or {}
+            merged = {}
+            for src in (g(d, "server", "stats"), d.get("stats")):
+                for k, v in (src or {}).items():
+                    if merged.get(k) in (None, ""):
+                        merged[k] = v
+            return s, merged
+
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            got = 0
+            for s, merged in ex.map(detail, need):
+                cur = s.get("stats") if isinstance(s.get("stats"), dict) else {}
+                for k, v in merged.items():
+                    if cur.get(k) in (None, ""):
+                        cur[k] = v
+                if cur:
+                    s["stats"] = cur
+                got += 1 if cur.get("usedMemory") is not None else 0
+        log(f"  {got} of {len(need)} returned memory usage")
 
     inv["snapshots"] = {}
     if snapshots and inv["instances"]:
@@ -293,6 +320,17 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
             if sid:
                 inst_by_server.setdefault(sid, i)
 
+    inst_servers = {}
+    for sid, i in inst_by_server.items():
+        inst_servers[i.get("id")] = inst_servers.get(i.get("id"), 0) + 1
+
+    def stat(s, inst, *keys):
+        """Usage stat from the server, else from its instance (single-VM instances only)."""
+        vals = [g(s, "stats", k) for k in keys] + [s.get(keys[0])]
+        if inst and inst_servers.get(inst.get("id")) == 1:
+            vals += [g(inst, "stats", k) for k in keys]
+        return first(*vals)
+
     def host_name(s):
         return first(g(s, "parentServer", "name"), name_of(srv_by_id.get(g(s, "parentServer", "id"))))
 
@@ -327,7 +365,8 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
         cores = to_int(first(s.get("maxCores"), inst.get("maxCores"), g(inst, "plan", "maxCores")))
         cps = to_int(first(s.get("coresPerSocket"), inst.get("coresPerSocket"))) or None
         mem = to_int(first(s.get("maxMemory"), inst.get("maxMemory")))
-        used_mem = first(g(s, "stats", "usedMemory"), s.get("usedMemory"))
+        used_mem = stat(s, inst, "usedMemory")
+        cpu_use = stat(s, inst, "cpuUsage", "usedCpu")
         cluster = cluster_of(s)
         host = host_name(s)
         common = {"Host": host, "Cluster": cluster, "Cloud": cloud_name(s), "VM ID": s.get("id")}
@@ -348,7 +387,7 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
             "Cores per Socket": cps, "Memory MiB": mib(mem), "NICs": len(nics), "Disks": len(vols),
             "Total disk capacity MiB": mib(sum(to_int(v.get("maxStorage")) or 0 for v in vols)) if vols else None,
             "Provisioned MiB": mib(s.get("maxStorage")),
-            "In Use MiB": mib(first(g(s, "stats", "usedStorage"), s.get("usedStorage"))),
+            "In Use MiB": mib(stat(s, inst, "usedStorage")),
             "Primary IP Address": first(s.get("internalIp"), s.get("externalIp"), s.get("sshHost")),
             "All IP Addresses": ", ".join(ip_list) or None,
             "Network #1": g(netnames, 0), "Network #2": g(netnames, 1),
@@ -374,7 +413,7 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
         rows["vCPU"].append({
             "VM": first(s.get("displayName"), s.get("name")), "Powerstate": ps, "CPUs": cores,
             "Sockets": (cores // cps) if cores and cps else None, "Cores per Socket": cps,
-            "CPU Usage %": to_int(g(s, "stats", "cpuUsage")) if g(s, "stats", "cpuUsage") is not None else None,
+            "CPU Usage %": to_int(cpu_use),
             "Plan": g(s, "plan", "name"), "OS": first(g(s, "serverOs", "name"), s.get("osType")), **common})
 
         rows["vMemory"].append({
@@ -684,6 +723,7 @@ def main():
     ap.add_argument("--insecure", action="store_true", help="Skip TLS verification (self-signed certs)")
     ap.add_argument("-o", "--output", help="Output .xlsx (default HVMTools_<host>_<date>.xlsx)")
     ap.add_argument("--no-snapshots", action="store_true", help="Skip per-instance snapshot queries")
+    ap.add_argument("--no-stats", action="store_true", help="Skip per-server usage stats queries (used when the server list omits stats)")
     ap.add_argument("--raw", action="store_true", help="Add raw_servers / raw_instances / raw_datastores sheets with every API field")
     ap.add_argument("--dump-json", help="Also save the raw collected inventory to this JSON file")
     ap.add_argument("--from-json", help="Build the workbook from a previously dumped JSON (no API calls)")
@@ -705,7 +745,7 @@ def main():
             user = a.username or input("Username: ")
             pw = a.password or getpass.getpass(f"Password for {user}: ")
             c.login(user, pw)
-        inv = collect(c, snapshots=not a.no_snapshots, workers=a.workers)
+        inv = collect(c, snapshots=not a.no_snapshots, stats=not a.no_stats, workers=a.workers)
         if a.dump_json:
             with open(a.dump_json, "w", encoding="utf-8") as f:
                 json.dump(inv, f, indent=2, default=str)

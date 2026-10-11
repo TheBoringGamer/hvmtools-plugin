@@ -92,12 +92,13 @@ python hvmtools.py [options]
 | `--insecure` | Skip TLS certificate verification (for self-signed certificates). |
 | `-o`, `--output FILE` | Output workbook path. Default: `HVMTools_<host>_<YYYYMMDD_HHMM>.xlsx`. |
 | `--no-snapshots` | Skip per-instance snapshot queries. Speeds up large environments; `vSnapshot` will be empty. |
+| `--no-stats` | Skip the per-server usage stats queries made when the server list omits stats. Memory, CPU and disk usage columns may then be blank. |
 | `--raw` | Add `raw_servers`, `raw_instances` and `raw_datastores` sheets containing every API field. |
 | `--dump-json FILE` | Save the raw collected inventory to a JSON file as well. |
 | `--from-json FILE` | Build the workbook from a previously dumped JSON file. No API calls are made. |
 | `--snapshot-age N` | `vHealth` flags snapshots older than N days. Default: 7. |
 | `--page-size N` | Items requested per API page. Default: 100. |
-| `--workers N` | Parallel threads used for per-instance snapshot queries. Default: 8. |
+| `--workers N` | Parallel threads used for per-instance snapshot and per-server stats queries. Default: 8. |
 
 ### Environment variables
 
@@ -196,6 +197,7 @@ See **[docs/SHEETS.md](docs/SHEETS.md)** for every column and where its data com
 - Usage figures (consumed memory, CPU usage %, used disk) depend on the manager having stats for the VM, which generally requires the Morpheus agent or hypervisor-reported stats.
 - Host hardware columns (CPU model, vendor, model, serial) are only populated if the manager exposes them.
 - Snapshot collection makes one API call per instance; use `--no-snapshots` if this is slow.
+- If the server list omits usage stats, one extra API call is made per affected server; use `--no-stats` to skip it.
 
 ---
 
