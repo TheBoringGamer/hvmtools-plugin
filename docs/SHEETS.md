@@ -2,7 +2,7 @@
 
 Every tab in the HVMTools workbook, every column, and the Morpheus API field it comes from.
 
-The mappings below were checked against a live HPE VM Essentials **9.1.0.1** manager. The bundled fictional sample (`examples/sample-inventory.json`: 4 clusters, 17 hosts, 109 VMs) exercises every tab:
+The mappings below were checked against a live HPE VM Essentials **9.1.0.1** manager. The bundled fictional sample (`examples/sample-inventory.json`: 4 clusters, 17 hosts, 109 VMs) exercises every tab, and the screenshots below are taken from it:
 
 ```bash
 python hvmtools.py --from-json examples/sample-inventory.json -o sample.xlsx
@@ -27,6 +27,8 @@ A blank cell means the manager did not return that field for the object.
 ## vInfo — one row per VM
 
 The main inventory: one row per VM with its configuration, placement and ownership. Start here for migration assessments; filter on *Cluster*, *Powerstate* or *OS* to scope a wave.
+
+![vInfo tab](images/vinfo.jpg)
 
 | Column | Source |
 |---|---|
@@ -92,6 +94,8 @@ The main inventory: one row per VM with its configuration, placement and ownersh
 
 Configured versus consumed memory per VM. Sort by *Usage %* to find right-sizing candidates before a migration.
 
+![vMemory tab](images/vmemory.jpg)
+
 | Column | Source |
 |---|---|
 | VM, Powerstate | As vInfo |
@@ -144,6 +148,8 @@ Configured versus consumed memory per VM. Sort by *Usage %* to find right-sizing
 
 ## vSnapshot — one row per snapshot
 
+![vSnapshot tab](images/vsnapshot.jpg)
+
 Source: `GET /api/instances/{id}/snapshots`. Empty when `--no-snapshots` is used.
 
 | Column | Source |
@@ -166,6 +172,8 @@ Source: `GET /api/instances/{id}/snapshots`. Empty when `--no-snapshots` is used
 ## vHost — one row per hypervisor host
 
 Capacity, usage and VM density per host. *vCPUs per Core* is the vCPU:pCore overcommit ratio.
+
+![vHost tab](images/vhost.jpg)
 
 | Column | Source |
 |---|---|
@@ -201,6 +209,8 @@ Capacity, usage and VM density per host. *vCPUs per Core* is the vCPU:pCore over
 
 ## vCluster — one row per cluster
 
+![vCluster tab](images/vcluster.jpg)
+
 | Column | Source |
 |---|---|
 | Cluster | `cluster.name` |
@@ -221,6 +231,8 @@ Capacity, usage and VM density per host. *vCPUs per Core* is the vCPU:pCore over
 ## vDatastore — one row per datastore
 
 Sources: `GET /api/clusters/{id}/datastores` (each cluster's *Storage → Data Stores* tab — GFS2, OCFS2, NFS pools, local) merged with `GET /api/zones/{id}/data-stores` (cloud level). A datastore returned by both appears once.
+
+![vDatastore tab](images/vdatastore.jpg)
 
 | Column | Source |
 |---|---|
@@ -286,7 +298,9 @@ An *instance* is Morpheus's provisioning unit; it usually contains one VM but ca
 
 ## vHealth — one row per finding
 
-Sorted Critical → Warning → Info and colour-coded. Filter on *Severity* for a quick health summary before a migration or audit.
+Sorted Critical → Warning → Info, then hosts, datastores, snapshots and VMs within each severity, and colour-coded. Filter on *Severity* for a quick health summary before a migration or audit.
+
+![vHealth tab](images/vhealth.jpg)
 
 | Check | Severity | Condition |
 |---|---|---|
@@ -302,6 +316,8 @@ Sorted Critical → Warning → Info and colour-coded. Filter on *Severity* for 
 ## vSource — collection details
 
 Manager URL, build version (`/api/ping`), appliance URL, connected user and tenant (`/api/whoami`), collection time (UTC), object counts, and the HVMTools version. Check *Build Version* first when a column is unexpectedly blank.
+
+![vSource tab](images/vsource.jpg)
 
 ## raw_servers / raw_instances / raw_datastores (with `--raw`)
 

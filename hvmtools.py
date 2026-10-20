@@ -469,7 +469,7 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
                 "Used MiB": mib(v.get("usedStorage")), "Root/Boot": v.get("rootVolume"),
                 "Device": first(v.get("deviceDisplayName"), v.get("deviceName")),
                 "Controller": first(g(v, "controller", "name"), v.get("controllerId")),
-                "Unit #": v.get("unitNumber"), "Datastore": ds_name(v),
+                "Unit #": to_int(v.get("unitNumber")), "Datastore": ds_name(v),
                 "Storage Type": first(g(v, "type", "name"), g(v, "storageType", "name"), v.get("typeName")),
                 "Thin": v.get("thin"), "Status": v.get("status"), "Disk ID": v.get("id"),
                 "External ID": v.get("externalId"), **common})
@@ -663,7 +663,7 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
                                       sum(to_int(f.get("fileSize")) or 0 for f in sn.get("snapshotFiles") or []))),
                 "Memory": sn.get("memorySnapshot"), "Current": sn.get("currentlyActive"),
                 "Cloud": g(inst, "cloud", "name"), "Snapshot ID": sn.get("id"),
-                "External ID": sn.get("externalId"), "Instance ID": iid})
+                "External ID": sn.get("externalId"), "Instance ID": to_int(iid)})
             if age is not None and age > snapshot_age_days:
                 health.append({"Entity": f"{inst.get('name')} / {sn.get('name')}", "Type": "Snapshot",
                                "Severity": "Warning", "Message": f"Snapshot is {age} days old"})
@@ -681,7 +681,8 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
                  ("Tool", f"HVMTools {__version__}")]:
         rows["vSource"].append({"Property": k, "Value": v})
 
-    rows["vHealth"].sort(key=lambda r: {"Critical": 0, "Warning": 1, "Info": 2}.get(r["Severity"], 3))
+    rows["vHealth"].sort(key=lambda r: ({"Critical": 0, "Warning": 1, "Info": 2}.get(r["Severity"], 3),
+                                        {"Host": 0, "Datastore": 1, "Snapshot": 2, "VM": 3}.get(r["Type"], 4)))
     return rows
 
 
@@ -731,7 +732,7 @@ def write_sheet(wb, title, rows):
     for cell in ws[1]:
         cell.font, cell.fill = HEADER_FONT, HEADER_FILL
         cell.alignment = Alignment(vertical="center")
-    widths = [len(c) for c in cols]
+    widths = [len(c) + 3 for c in cols]  # room for the AutoFilter button
     for r in rows:
         ws.append([clean(r.get(c)) for c in cols])
         for i, c in enumerate(cols):

@@ -10,6 +10,10 @@ HVMTools connects to an HPE VM Essentials manager through the Morpheus REST API,
 
 Use it for VMware-to-VME migration assessments, capacity planning, audits, health checks and as-built documentation.
 
+![The vInfo tab of an HVMTools workbook open in Excel](docs/images/vinfo.jpg)
+
+<sub>Screenshots use the bundled fictional sample environment: 2 clouds, 4 clusters, 17 hosts, 109 VMs.</sub>
+
 ---
 
 ## Contents
@@ -193,6 +197,21 @@ python hvmtools.py --url https://hvm-mgr -u svc-inventory --snapshot-age 30
 | `vSource` | Property | Manager URL, build version, connected user, collection time, object counts |
 
 Sizes are in **MiB** to match RVTools. Dates are UTC.
+
+**vHost**: hardware, capacity and VM density per host
+
+![vHost tab](docs/images/vhost.jpg)
+
+**vDatastore**: GFS2, NFS and local datastores with free and provisioned %
+
+![vDatastore tab](docs/images/vdatastore.jpg)
+
+<table>
+<tr>
+<td width="50%" valign="top"><a href="docs/images/vhealth.jpg"><img src="docs/images/vhealth.jpg" alt="vHealth tab"></a><br><b>vHealth</b>: findings sorted and shaded by severity</td>
+<td width="50%" valign="top"><a href="docs/images/vsource.jpg"><img src="docs/images/vsource.jpg" alt="vSource tab"></a><br><b>vSource</b>: where, when and by whom the data was collected</td>
+</tr>
+</table>
 
 See **[docs/SHEETS.md](docs/SHEETS.md)** for every column and where its data comes from.
 

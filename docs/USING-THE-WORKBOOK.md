@@ -14,6 +14,8 @@ Every tab has AutoFilter on the header row and frozen panes, so the filter arrow
 
 vSource records **which manager**, **which build**, **who collected** and **when** (UTC). Keep it with the workbook whenever you hand it on, because it is what makes the numbers traceable.
 
+![vSource tab](images/vsource.jpg)
+
 The object counts at the bottom (Clouds, Clusters, Hosts, VMs, Instances, Datastores, Networks) are a quick sanity check against the VME UI.
 
 ---
@@ -22,11 +24,13 @@ The object counts at the bottom (Clouds, Clusters, Hosts, VMs, Instances, Datast
 
 Open **vHealth**. Findings are already sorted Critical → Warning → Info and shaded by severity.
 
+![vHealth tab](images/vhealth.jpg)
+
 | You see | What to do |
 |---|---|
 | *Host status: error* (Critical) | Check the host in *Infrastructure → Clusters → Hosts*; the agent may have lost contact |
-| *Memory usage 93%* (Warning) | That host has no headroom for an HA restart; rebalance VMs across the cluster |
-| *Only 6% free* on a datastore | Expand the LUN or move disks before thin-provisioned disks fill it |
+| *Memory usage 93.0%* (Warning) | That host has no headroom for an HA restart; rebalance VMs across the cluster |
+| *Only 6.0% free* on a datastore | Expand the LUN or move disks before thin-provisioned disks fill it |
 | *Snapshot is 210 days old* | Old snapshots grow and slow disk I/O; confirm with the owner and delete |
 | *Morpheus agent not installed* | Usage columns for that VM rely on hypervisor stats only; install the agent for guest-level metrics |
 | *Host is in maintenance mode* (Info) | Expected during patching; make sure it is taken out afterwards |
@@ -63,6 +67,9 @@ For a per-cluster summary, insert a PivotTable on vInfo:
 
 In **vMemory**, sort *Usage %* ascending. VMs using under 25% of their configured memory over a representative period are candidates for a smaller plan. In **vCPU**, sort *CPU Usage %* the same way.
 
+
+![vMemory tab](images/vmemory.jpg)
+
 The usage figures are a single point-in-time sample from the manager. Collect at a busy time of day, or collect several times and compare.
 
 ### 4. Check storage
@@ -71,6 +78,8 @@ The usage figures are a single point-in-time sample from the manager. Collect at
 
 *Type* distinguishes `HPE Clustered Datastore (Shared LUN)` (GFS2), `NFS Datastore` and `Directory Datastore (Local)`. Only shared datastores let VMs move live between hosts.
 
+![vDatastore tab](images/vdatastore.jpg)
+
 ---
 
 ## Capacity review
@@ -78,6 +87,8 @@ The usage figures are a single point-in-time sample from the manager. Collect at
 ### Hosts
 
 **vHost** gives, per host, physical cores and memory alongside what the VMs on it are allocated:
+
+![vHost tab](images/vhost.jpg)
 
 | Column | Healthy range (typical guidance) |
 |---|---|
@@ -89,6 +100,8 @@ The usage figures are a single point-in-time sample from the manager. Collect at
 
 **vCluster** rolls the same figures up per cluster: total cores and memory against allocated vCPUs and vRAM.
 
+![vCluster tab](images/vcluster.jpg)
+
 *vRAM MiB* ÷ *Total Memory MiB* is the memory allocation ratio. Allow for the host reserved memory and for losing a host, and keep it comfortably below 100%.
 
 ---
@@ -96,6 +109,8 @@ The usage figures are a single point-in-time sample from the manager. Collect at
 ## Snapshot hygiene
 
 **vSnapshot** lists every snapshot with its age in days. Sort *Age (days)* descending to find forgotten ones; *Instance* tells you whose VM it is (look up *Owner* in vInfo or vInstance).
+
+![vSnapshot tab](images/vsnapshot.jpg)
 
 ---
 

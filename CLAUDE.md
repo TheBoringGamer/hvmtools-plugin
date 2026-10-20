@@ -18,6 +18,7 @@ docs/HOW-IT-WORKS.md            auth, endpoints, object-matching logic, how to e
 docs/TROUBLESHOOTING.md         login/TLS errors, blank columns, permissions, performance
 docs/RVTOOLS-MAPPING.md         VMware/RVTools <-> VME/HVMTools mapping
 docs/USING-THE-WORKBOOK.md      recipes: health check, migration, right-sizing, capacity
+docs/images/                    Excel screenshots (.jpg) of the generated sample workbook
 examples/generate_sample.py     deterministic generator for the fictional sample (9.1 record shapes)
 examples/sample-inventory.json  generated fake data for offline testing (--from-json); don't hand-edit
 CHANGELOG.md, LICENSE, requirements.txt, .gitignore (ignores *.xlsx, inventory*.json)
