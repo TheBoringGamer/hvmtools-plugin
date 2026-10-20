@@ -32,3 +32,4 @@ First public release. Verified against a live HPE VM Essentials 9.1.0.1 manager.
 - vInstance *IP Addresses* no longer shows the `0.0.0.0` placeholder.
 - Powered-off VMs (status `stopped`) no longer get a duplicate *Status: stopped* warning in vHealth.
 - *CPU Usage %* is rounded to one decimal place in vCPU and vHost.
+- vSnapshot *State* was blank; 9.1 reports it in `status`. Added *Size MiB* and *Memory* (memory snapshot) columns.

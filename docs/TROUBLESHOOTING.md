@@ -95,7 +95,7 @@ Some columns are blank by nature on 9.1:
 | vHost *External ID* | HVM hosts have no external ID |
 | vInfo *Agent Version* | Blank where the Morpheus agent isn't installed |
 
-There is no host serial number column: the 9.1 API doesn't expose one.
+There is no host serial number column. VME 9.1 doesn't return one anywhere: the host list, `GET /api/servers/{id}` (with or without `?details=true`) and the cluster member list all carry the same four hardware fields (`hardwareCpuModel`, `hardwareCpuFrequency`, `hardwareProductVendor`, `hardwareProductName`). If a later VME version adds a serial, run with `--raw` and open an issue with the field name, and it will be mapped.
 
 Field names also vary between VME versions. Run:
 

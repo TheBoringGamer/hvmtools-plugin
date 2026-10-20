@@ -348,7 +348,8 @@ def main():
                 inv["snapshots"][str(iid)] = [{
                     "id": next_id("snap"), "name": rnd.choice(["pre-patch", "before-upgrade", "change-CHG0041"]),
                     "description": "Taken before maintenance", "snapshotCreated": ts(age),
-                    "snapshotType": "vm", "state": "available", "currentlyActive": True,
+                    "snapshotType": "vm", "state": None, "status": "complete", "currentlyActive": True,
+                    "memorySnapshot": False, "maxStorage": int(sum(disks) * GIB * (0.02 + age / 2000)),
                     "externalId": f"{name}-snap-{age}"}]
 
     # one unmanaged (discovered) VM: the VME manager appliance itself

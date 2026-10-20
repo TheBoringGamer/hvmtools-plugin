@@ -154,7 +154,9 @@ Source: `GET /api/instances/{id}/snapshots`. Empty when `--no-snapshots` is used
 | Date / time | `snapshot.snapshotCreated` → `snapshot.dateCreated` |
 | Age (days) | Days between *Date / time* and collection time |
 | Type | `snapshot.snapshotType` |
-| State | `snapshot.state` |
+| State | `snapshot.state` → `snapshot.status` (9.1 reports `complete` in `status` and leaves `state` empty) |
+| Size MiB | `snapshot.maxStorage` → sum of `snapshot.snapshotFiles[].fileSize` |
+| Memory | `snapshot.memorySnapshot` (whether VM memory was captured) |
 | Current | `snapshot.currentlyActive` |
 | Cloud | `instance.cloud.name` |
 | Snapshot ID | `snapshot.id` |

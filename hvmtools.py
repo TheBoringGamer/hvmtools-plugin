@@ -658,7 +658,10 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
             rows["vSnapshot"].append({
                 "Instance": inst.get("name"), "Name": sn.get("name"), "Description": sn.get("description"),
                 "Date / time": created, "Age (days)": age, "Type": sn.get("snapshotType"),
-                "State": sn.get("state"), "Current": sn.get("currentlyActive"),
+                "State": first(sn.get("state"), sn.get("status")),
+                "Size MiB": mib(first(sn.get("maxStorage"),
+                                      sum(to_int(f.get("fileSize")) or 0 for f in sn.get("snapshotFiles") or []))),
+                "Memory": sn.get("memorySnapshot"), "Current": sn.get("currentlyActive"),
                 "Cloud": g(inst, "cloud", "name"), "Snapshot ID": sn.get("id"),
                 "External ID": sn.get("externalId"), "Instance ID": iid})
             if age is not None and age > snapshot_age_days:

@@ -43,12 +43,12 @@ Verified against a live VME **9.1.0.1** lab (3 nested hosts on VMware, GFS2 + NF
 python examples/generate_sample.py
 python hvmtools.py --from-json examples/sample-inventory.json -o /tmp/test.xlsx
 ```
-9.1 field facts: hosts have `computeServerType.code=mvmHost, format=vmHypervisor` (no `vmHypervisor` bool); host hardware in `hardwareCpuModel/hardwareCpuFrequency/hardwareProductVendor/hardwareProductName` (vendor/name end in a newline); no serial field; datastore `type` is often `generic` - real type is `datastoreType.name`; NFS config `sourceHostname/sourceDirPath`, GFS2 config `blockDevice`; `/api/servers` list already includes `stats`. Older versions are untested; keep `first()`/`g()` fallbacks and confirm against `--raw` output before changing mappings.
+9.1 field facts: hosts have `computeServerType.code=mvmHost, format=vmHypervisor` (no `vmHypervisor` bool); host hardware in `hardwareCpuModel/hardwareCpuFrequency/hardwareProductVendor/hardwareProductName` (vendor/name end in a newline); no serial field (checked list, `/api/servers/{id}`, `?details=true` and `/api/clusters/{id}` on 2026-10-20; add a Serial column if a later version exposes one); datastore `type` is often `generic` - real type is `datastoreType.name`; NFS config `sourceHostname/sourceDirPath`, GFS2 config `blockDevice`; `/api/servers` list already includes `stats`. Older versions are untested; keep `first()`/`g()` fallbacks and confirm against `--raw` output before changing mappings.
 Real lab dumps contain hostnames, IPs and the user's email - keep them outside the repo (never commit them) and never put real data in docs or screenshots; use the generated sample.
 
 ## Open items / known issues
 1. vMemory usage, datastore and host hardware mappings: verified on 9.1.0.1 (the 9.1 server list includes stats, so the `/api/servers/{id}` fallback path is still only stub-tested).
-2. vSnapshot field names (`snapshotCreated`, `snapshotType`, `state`, `currentlyActive`) are unverified - the lab had no snapshots.
+2. vSnapshot verified on 9.1.0.1: `state` is null, use `status` (`complete`); size in `maxStorage` / `snapshotFiles[].fileSize`.
 3. Possible future work: zero-dependency/standalone packaging (stdlib-only rewrite, vendored zipapp, or PyInstaller) for air-gapped jump boxes.
 
 ## Conventions

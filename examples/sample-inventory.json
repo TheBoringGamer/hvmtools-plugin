@@ -31470,8 +31470,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-07-16T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 6571299962,
     "externalId": "api02-snap-96"
    }
   ],
@@ -31482,8 +31485,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-10-18T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 2029372047,
     "externalId": "api08-snap-2"
    }
   ],
@@ -31494,8 +31500,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-07-16T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 11682311045,
     "externalId": "pay02-snap-96"
    }
   ],
@@ -31506,8 +31515,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-03-24T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 21474836480,
     "externalId": "pay04-snap-210"
    }
   ],
@@ -31518,8 +31530,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-10-08T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 12841952215,
     "externalId": "pgprd01-snap-12"
    }
   ],
@@ -31530,8 +31545,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-10-19T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 10125385400,
     "externalId": "pgprd04-snap-1"
    }
   ],
@@ -31542,8 +31560,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-10-18T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 1803886264,
     "externalId": "k8s-cp02-snap-2"
    }
   ],
@@ -31554,8 +31575,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-10-08T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 29592324669,
     "externalId": "kafka05-snap-12"
    }
   ],
@@ -31566,8 +31590,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-07-16T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 5841155522,
     "externalId": "ad-dc02-snap-96"
    }
   ],
@@ -31578,8 +31605,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-10-18T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 901943132,
     "externalId": "dev-api05-snap-2"
    }
   ],
@@ -31590,8 +31620,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-10-17T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 923417968,
     "externalId": "dev-api09-snap-3"
    }
   ],
@@ -31602,8 +31635,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-10-18T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 901943132,
     "externalId": "dr-web02-snap-2"
    }
   ],
@@ -31614,8 +31650,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-10-08T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 1116691496,
     "externalId": "dr-web03-snap-12"
    }
   ],
@@ -31626,8 +31665,11 @@
     "description": "Taken before maintenance",
     "snapshotCreated": "2026-07-16T09:30:00.000Z",
     "snapshotType": "vm",
-    "state": "available",
+    "state": null,
+    "status": "complete",
     "currentlyActive": true,
+    "memorySnapshot": false,
+    "maxStorage": 56951266344,
     "externalId": "dr-sql02-snap-96"
    }
   ]
