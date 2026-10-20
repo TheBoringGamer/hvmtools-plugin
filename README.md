@@ -251,4 +251,4 @@ HVMTools is released under the [MIT License](LICENSE). You are free to use, modi
 
 ## Disclaimer
 
-HVMTools is an independent community project. It is not affiliated with, endorsed by, or supported by Hewlett Packard Enterprise, Morpheus Data, Broadcom/VMware, or the authors of RVTools. HPE, Morpheus and VMware are trademarks of their respective owners.
+HVMTools is an independent community project. It is not affiliated with, endorsed by, or supported by Hewlett Packard Enterprise, Morpheus Data, Broadcom/VMware, or Dell Technologies (the publisher of RVTools). HPE, Morpheus, VMware, Dell and RVTools are trademarks of their respective owners.
