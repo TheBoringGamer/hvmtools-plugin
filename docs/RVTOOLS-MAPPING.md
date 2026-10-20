@@ -9,12 +9,15 @@ For VMware administrators used to RVTools, this is how the concepts and tabs lin
 | vCenter (VI SDK Server) | VME manager (*Manager* column, vSource tab) |
 | Datacenter | Cloud |
 | Cluster | Cluster (HPE VM cluster) |
-| ESXi host | Hypervisor host (KVM-based HPE VM host) |
+| ESXi host | HVM host (KVM-based; *Hypervisor* = `HVM Hypervisor`) |
+| Maintenance mode | Maintenance mode (vHost *Maintenance*) |
 | VM | VM (a Morpheus *server*) |
 | — | Instance (Morpheus provisioning unit that owns one or more VMs) |
 | Folder | Group |
 | Resource pool | Resource pool |
-| VMFS / NFS datastore | GFS2 / OCFS2 / NFS pool / local datastore |
+| VMFS datastore | HPE Clustered Datastore (Shared LUN), i.e. GFS2 |
+| NFS datastore | NFS Datastore |
+| Local VMFS | Directory Datastore (Local) |
 | Port group / dvPortgroup | Network |
 | VMware Tools | Morpheus agent |
 | Annotation | Description |
@@ -36,11 +39,11 @@ For VMware administrators used to RVTools, this is how the concepts and tabs lin
 | vSource | vSource | |
 | vRP | vInfo (*Resource Pool*) | |
 | vCluster | vCluster | |
-| vHost | vHost | |
+| vHost | vHost | CPU model, MHz, sockets, cores, vendor, model; no serial number (not in the API) |
 | vHBA / vNIC / vSwitch / vPort | — | Physical host networking/HBA detail isn't exposed by the API |
 | dvSwitch / dvPort | — | |
 | vSC_VMK | — | |
-| vDatastore | vDatastore | Includes cluster Storage-tab datastores (GFS2, NFS, etc.) and % Provisioned |
+| vDatastore | vDatastore | Includes cluster Storage-tab datastores (GFS2, NFS, local), NFS server/export or LUN device, and % Provisioned |
 | vMultiPath | — | |
 | vLicense | — | |
 | vFileInfo | — | |

@@ -2,9 +2,17 @@
 
 Progress and warnings are printed to the console (stderr) with timestamps. Read those first — most problems show up there as an HTTP status for a specific endpoint.
 
+**Quick index:** [Login failed](#login-failed-400-or-login-failed-401) · [Unauthorized](#unauthorized---check-credentials--token) · [TLS error](#tls-error--certificate_verify_failed) · [Cannot connect](#cannot-connect-to-the-manager--timed-out) · [Permission denied](#cannot-access--permission-denied) · [No data returned](#a-whole-tab-says-no-data-returned) · [Blank usage columns](#vmemory-usage-columns-are-blank) · [Blank columns](#some-columns-are-always-blank) · [Performance](#performance)
+
 ## Login and connection
 
 ### `Login failed (400)` or `Login failed (401)`
+
+A wrong password on 9.1 looks like this:
+
+```
+Login failed (400): {"error_description":"Invalid user credentials","error":"invalid_grant"}
+```
 
 - Check the username and password by logging in to the manager's web UI.
 - For a user in a sub-tenant, the username format may need to be `TENANT\username`.
@@ -14,7 +22,12 @@ Progress and warnings are printed to the console (stderr) with timestamps. Read 
 
 The token was rejected. It may have expired or been regenerated in the UI. Create a new one or use username/password login.
 
-### `SSLError` / `CERTIFICATE_VERIFY_FAILED`
+### `TLS error` / `CERTIFICATE_VERIFY_FAILED`
+
+```
+TLS error: HTTPSConnectionPool(host='hvm-manager.example.com', port=443): ... certificate verify failed: self-signed certificate
+If the manager uses a self-signed certificate, add --insecure.
+```
 
 The manager uses a certificate your machine doesn't trust (commonly self-signed). Either:
 
@@ -24,11 +37,24 @@ The manager uses a certificate your machine doesn't trust (commonly self-signed)
   export REQUESTS_CA_BUNDLE=/path/to/ca-bundle.pem
   ```
 
-### Connection timed out / refused
+### `Cannot connect to the manager` / timed out
+
+```
+Cannot connect to the manager: ... Failed to establish a new connection: [Errno 111] Connection refused
+Check --url, DNS and that port 443 is reachable.
+```
 
 - Confirm the URL, including the port if it isn't 443.
 - Check that HTTPS from your machine to the manager isn't blocked by a firewall or proxy.
 - If you need a proxy, set `HTTPS_PROXY`. To bypass a proxy for the manager, add it to `NO_PROXY`.
+
+### `Cannot access ...: permission denied`
+
+```
+Cannot access HVMTools_hvm-manager_20261020_0930.xlsx: permission denied (if it's the workbook, is it open in Excel?)
+```
+
+On Windows, Excel locks a workbook while it's open. Close it, or write to a different file with `-o`. Nothing is lost if you also used `--dump-json`: rebuild with `--from-json` instead of collecting again.
 
 ## Missing or blank data
 
@@ -36,7 +62,9 @@ The manager uses a certificate your machine doesn't trust (commonly self-signed)
 
 The console will show a warning such as `warn: /api/clusters -> HTTP 403`. The account doesn't have permission to that area. Give the reporting role read access to the relevant Infrastructure, Provisioning, Network or Storage permission, or run as an account that has it.
 
-If **vInfo** is empty but **vHost** has rows, every server was classified as a host. Run with `--raw` and check `computeServerType.vmHypervisor` and `parentServer.id` in `raw_servers`, then open an issue with that information.
+If the console shows `warn: no servers returned`, the account can log in but can't see Infrastructure. vInfo, vHost and most other tabs will be empty.
+
+If **vInfo** is empty but **vHost** has rows, every server was classified as a host. Run with `--raw` and check `computeServerType.format`, `computeServerType.code` and `parentServer.id` in `raw_servers`, then open an issue with that information. On 9.1, hosts have `format` = `vmHypervisor` and VMs have `format` = `guestVm`.
 
 ### vMemory usage columns are blank
 
@@ -57,7 +85,19 @@ The same applies to *CPU Usage %* in vCPU and *In Use MiB* in vInfo.
 
 ### Some columns are always blank
 
-Field names vary between VME versions, and some fields (for example host vendor, model and serial) are only present on some versions. Run:
+Some columns are blank by nature on 9.1:
+
+| Column | Why |
+|---|---|
+| vInfo *Discovered*, *Resource Pool* | Not returned for HVM VMs |
+| vDisk *Thin* | Not returned; HVM disks are file-backed qcow2 on GFS2/NFS/local datastores |
+| vDatastore *Address* | Only NFS datastores have a remote server; GFS2 uses a shared LUN (see *Source*) |
+| vHost *External ID* | HVM hosts have no external ID |
+| vInfo *Agent Version* | Blank where the Morpheus agent isn't installed |
+
+There is no host serial number column: the 9.1 API doesn't expose one.
+
+Field names also vary between VME versions. Run:
 
 ```bash
 python hvmtools.py --url https://vme-mgr -u admin --raw

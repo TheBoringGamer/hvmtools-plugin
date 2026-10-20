@@ -2,6 +2,14 @@
 
 Every tab in the HVMTools workbook, every column, and the Morpheus API field it comes from.
 
+The mappings below were checked against a live HPE VM Essentials **9.1.0.1** manager. The bundled fictional sample (`examples/sample-inventory.json`: 4 clusters, 17 hosts, 109 VMs) exercises every tab:
+
+```bash
+python hvmtools.py --from-json examples/sample-inventory.json -o sample.xlsx
+```
+
+**Tabs:** [vInfo](#vinfo--one-row-per-vm) · [vCPU](#vcpu--one-row-per-vm) · [vMemory](#vmemory--one-row-per-vm) · [vDisk](#vdisk--one-row-per-vm-disk) · [vNetwork](#vnetwork--one-row-per-vm-nic) · [vSnapshot](#vsnapshot--one-row-per-snapshot) · [vHost](#vhost--one-row-per-hypervisor-host) · [vCluster](#vcluster--one-row-per-cluster) · [vDatastore](#vdatastore--one-row-per-datastore) · [vNetworks](#vnetworks--one-row-per-network) · [vInstance](#vinstance--one-row-per-morpheus-instance) · [vHealth](#vhealth--one-row-per-finding) · [vSource](#vsource--collection-details) · [raw_*](#raw_servers--raw_instances--raw_datastores-with---raw)
+
 Conventions used below:
 
 - `server.*` is a record from `GET /api/servers` (VMs and hosts are both "servers" in Morpheus).
@@ -17,6 +25,8 @@ A blank cell means the manager did not return that field for the object.
 ---
 
 ## vInfo — one row per VM
+
+The main inventory: one row per VM with its configuration, placement and ownership. Start here for migration assessments; filter on *Cluster*, *Powerstate* or *OS* to scope a wave.
 
 | Column | Source |
 |---|---|
@@ -58,7 +68,7 @@ A blank cell means the manager did not return that field for the object.
 | OS Version | `server.platformVersion` |
 | Tags | `server.tags` → `instance.tags`, as `key=value; key=value` |
 | Labels | `server.labels` → `instance.labels`, comma-separated |
-| Managed | `server.managed` |
+| Managed | `server.managed` → `server.computeServerType.managed` (`False` for VMs discovered on a host but not managed by VME, such as the manager appliance itself) |
 | Discovered | `server.discovered` |
 | Server Type | `server.computeServerType.name` |
 | VM ID | `server.id` |
@@ -73,12 +83,14 @@ A blank cell means the manager did not return that field for the object.
 |---|---|
 | VM, Powerstate | As vInfo |
 | CPUs, Sockets, Cores per Socket | As vInfo |
-| CPU Usage % | `server.stats.cpuUsage` → `server.stats.usedCpu` → `instance.stats.cpuUsage` → `instance.stats.usedCpu` |
+| CPU Usage % | `server.stats.cpuUsage` → `server.stats.usedCpu` → `instance.stats.cpuUsage` → `instance.stats.usedCpu`, rounded to one decimal place |
 | Plan | `server.plan.name` |
 | OS | As vInfo |
 | Host, Cluster, Cloud, VM ID | As vInfo |
 
 ## vMemory — one row per VM
+
+Configured versus consumed memory per VM. Sort by *Usage %* to find right-sizing candidates before a migration.
 
 | Column | Source |
 |---|---|
@@ -151,6 +163,8 @@ Source: `GET /api/instances/{id}/snapshots`. Empty when `--no-snapshots` is used
 
 ## vHost — one row per hypervisor host
 
+Capacity, usage and VM density per host. *vCPUs per Core* is the vCPU:pCore overcommit ratio.
+
 | Column | Source |
 |---|---|
 | Host | `server.name` |
@@ -159,10 +173,11 @@ Source: `GET /api/instances/{id}/snapshots`. Empty when `--no-snapshots` is used
 | Status | `server.status` |
 | Powerstate | `server.powerState` (normalised) |
 | IP Address | `server.internalIp` → `server.externalIp` → `server.sshHost` |
-| CPU Model | `server.hostInfo.cpuModel` → `server.cpuModel` → `server.config.cpuModel` |
-| # Sockets | `server.maxCpu` → `server.hostInfo.cpuSockets` |
+| CPU Model | `server.hardwareCpuModel` → `server.hostInfo.cpuModel` → `server.cpuModel` |
+| CPU MHz | `server.hardwareCpuFrequency` |
+| # Sockets | `server.maxSockets` → `server.maxCpu` → `server.hostInfo.cpuSockets` |
 | # Cores | `server.maxCores` → `server.hostInfo.cpuCores` |
-| CPU Usage % | `server.stats.cpuUsage` |
+| CPU Usage % | `server.stats.cpuUsage`, rounded to one decimal place |
 | Memory MiB | `server.stats.maxMemory` → `server.maxMemory` |
 | Memory Used MiB | `server.stats.usedMemory` → `server.usedMemory` |
 | Memory Usage % | Used ÷ Memory × 100 |
@@ -173,10 +188,11 @@ Source: `GET /api/instances/{id}/snapshots`. Empty when `--no-snapshots` is used
 | # vCPUs | Sum of CPUs of those VMs |
 | vCPUs per Core | # vCPUs ÷ # Cores |
 | vRAM MiB | Sum of configured memory of those VMs |
-| OS / OS Version | `server.serverOs.name` / `server.platformVersion` |
+| OS / OS Version | `server.serverOs.name` → `server.platform` → `server.osType` / `server.platformVersion` |
 | Hypervisor | `server.computeServerType.name` |
 | Agent Version | `server.agentVersion` |
-| Vendor / Model / Serial | `server.manufacturer` / `server.model` / `server.serialNumber` (or `hostInfo.*`) |
+| Vendor / Model | `server.hardwareProductVendor` / `server.hardwareProductName` (trailing whitespace removed). Nested or virtualised lab hosts report their hypervisor here, for example `VMware, Inc.` |
+| Maintenance | `server.maintenanceMode` |
 | Creation date | `server.dateCreated` |
 | Host ID / External ID / UUID | `server.id` / `server.externalId` / `server.uuid` |
 | Manager | Manager URL |
@@ -208,7 +224,7 @@ Sources: `GET /api/clusters/{id}/datastores` (each cluster's *Storage → Data S
 |---|---|
 | Name | `datastore.name` |
 | Display Name | `datastore.displayName` |
-| Type | `datastore.type` → `datastore.datastoreType.name` → `datastoreType.code` → `externalType` |
+| Type | `datastore.datastoreType.name` → `datastore.type` (ignored when it is the placeholder `generic`) → `datastoreType.code` → `externalType`. On 9.1 this gives `HPE Clustered Datastore (Shared LUN)` for GFS2, `NFS Datastore` and `Directory Datastore (Local)` |
 | Status | `datastore.status`, or `online` if `datastore.online` is true |
 | Accessible | `datastore.online` |
 | Active | `datastore.active` |
@@ -222,8 +238,9 @@ Sources: `GET /api/clusters/{id}/datastores` (each cluster's *Storage → Data S
 | # Hosts / Hosts | Hosts of the cluster(s) the datastore is attached to |
 | Cluster | Cluster(s) whose Storage tab lists the datastore |
 | Cloud | `datastore.zone.name` |
-| Address | `config.sourceHost` → `host` → `serverHost` → `target` → `portal` (e.g. NFS server) |
-| Path / URL | `externalPath` → `config.exportFolder` → `sourceDir` → `path` → `mountPath` |
+| Address | `config.sourceHostname` → `sourceHost` → `host` → `serverHost` → `target` → `portal` (the NFS server; blank for block and local datastores) |
+| Source | `config.sourceDirPath` → `exportFolder` → `sourceDir` → `blockDevice` (the NFS export, or the shared LUN's device such as `/dev/mapper/mpatha` for GFS2) |
+| Path / URL | `externalPath` → `config.targetPath` → `path` → `mountPath` (where the datastore is mounted on each host) |
 | Category, Visibility, Default, Allow Provision, Heartbeat Target | Matching datastore fields |
 | Datastore ID / External ID | `datastore.id` / `datastore.externalId` |
 
@@ -259,7 +276,7 @@ An *instance* is Morpheus's provisioning unit; it usually contains one VM but ca
 | Created By / Owner | `createdBy.username` / `owner.username` |
 | Created | `instance.dateCreated` |
 | CPUs / Memory MiB / Storage MiB | `maxCores` / `maxMemory` / `maxStorage` |
-| IP Addresses | `connectionInfo[].ip` |
+| IP Addresses | `connectionInfo[].ip` (the `0.0.0.0` placeholder reported for VMs without an address is skipped) |
 | # VMs / VMs | Member servers and their names |
 | Hostname | `instance.hostName` |
 | Tags / Labels / Description | Matching instance fields |
@@ -267,22 +284,25 @@ An *instance* is Morpheus's provisioning unit; it usually contains one VM but ca
 
 ## vHealth — one row per finding
 
-Sorted Critical → Warning → Info and colour-coded.
+Sorted Critical → Warning → Info and colour-coded. Filter on *Severity* for a quick health summary before a migration or audit.
 
 | Check | Severity | Condition |
 |---|---|---|
 | Host status | Critical | Host status is not `provisioned`, `ok` or `running` |
 | Host memory | Warning | Host memory usage above 90% |
+| Host maintenance | Info | `server.maintenanceMode` is true |
 | Datastore space | Warning | Datastore free space below 10% |
 | Snapshot age | Warning | Snapshot older than `--snapshot-age` days (default 7) |
-| VM status | Warning | VM status is not `provisioned`, `running` or `ok` |
+| VM status | Warning | VM status is not `provisioned`, `running`, `ok` or `stopped` |
 | Missing agent | Warning | VM powered on with `agentInstalled = false` |
 | Powered off | Info | VM is powered off |
 
 ## vSource — collection details
 
-Manager URL, build version (`/api/ping`), appliance URL, connected user and tenant (`/api/whoami`), collection time (UTC), object counts, and the HVMTools version.
+Manager URL, build version (`/api/ping`), appliance URL, connected user and tenant (`/api/whoami`), collection time (UTC), object counts, and the HVMTools version. Check *Build Version* first when a column is unexpectedly blank.
 
 ## raw_servers / raw_instances / raw_datastores (with `--raw`)
 
-Every field returned by the API, flattened two levels deep (`zone.name`, `computeServerType.vmHypervisor`, …). Lists and deeper objects are stored as JSON text. Use these to find data that isn't mapped to a friendly column.
+Every field returned by the API, flattened two levels deep (`zone.name`, `computeServerType.format`, …). Lists and deeper objects are stored as JSON text. Use these to find data that isn't mapped to a friendly column.
+
+Credential-like fields are replaced with `<redacted>` before anything is written: any key containing `password`, `secret`, `token`, `apiKey`, `privateKey`, `serviceAccess` or `serviceCert`. On 9.1 that covers each server's agent `apiKey`, `sshPassword` and `sshPasswordHash`, and the cluster `service*` credentials. The same redaction applies to `--dump-json` files and to JSON loaded with `--from-json`.

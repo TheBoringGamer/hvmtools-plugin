@@ -17,7 +17,9 @@ docs/SHEETS.md                  every tab + column and the API field it comes fr
 docs/HOW-IT-WORKS.md            auth, endpoints, object-matching logic, how to extend
 docs/TROUBLESHOOTING.md         login/TLS errors, blank columns, permissions, performance
 docs/RVTOOLS-MAPPING.md         VMware/RVTools <-> VME/HVMTools mapping
-examples/sample-inventory.json  fake data for offline testing (--from-json)
+docs/USING-THE-WORKBOOK.md      recipes: health check, migration, right-sizing, capacity
+examples/generate_sample.py     deterministic generator for the fictional sample (9.1 record shapes)
+examples/sample-inventory.json  generated fake data for offline testing (--from-json); don't hand-edit
 CHANGELOG.md, LICENSE, requirements.txt, .gitignore (ignores *.xlsx, inventory*.json)
 ```
 
@@ -27,24 +29,27 @@ CHANGELOG.md, LICENSE, requirements.txt, .gitignore (ignores *.xlsx, inventory*.
 - `collect()`: `/api/ping`, `/api/whoami`, `/api/zones` (fallback `/api/clouds`), `/api/groups`, `/api/clusters` (+ `/api/clusters/{id}` if `servers` missing), `/api/servers`, `/api/instances`, `/api/networks`, datastores, and `/api/instances/{id}/snapshots` in a thread pool.
   - Usage stats: `/api/servers/{id}` for servers whose list record lacks `stats.usedMemory` (skipped with `--no-stats`).
   - Datastores: `/api/clusters/{id}/datastores` (cluster Storage tab: GFS2, OCFS2, NFS, local) merged by id with `/api/zones/{id}/data-stores`. Cluster names stored in `_clusters` on each datastore record.
-- `build_sheets()`: hosts = servers with `computeServerType.vmHypervisor == true` OR referenced as another server's `parentServer`; everything else is a VM. Joins VM->host (`parentServer`), host->cluster (`cluster.servers`), VM->instance (`instance.servers` / `containers[].server.id`), disk->datastore (`datastoreId`), NIC->network.
+- `redact()` blanks credential-like keys (apiKey, sshPassword(Hash), service* creds...) in `collect()` output and `--from-json` input.
+- `run()` wraps `main()` and turns TLS/connection/HTTP/permission/JSON errors into one-line `SystemExit` messages. `/api/ping` is non-quiet so connection failures stop the run.
+- `build_sheets()`: hosts = servers with `computeServerType.format == "vmHypervisor"` (9.1) or `computeServerType.vmHypervisor == true` OR referenced as another server's `parentServer`; everything else is a VM. Host cluster from `serverGroup.name`. Joins VM->host (`parentServer`), host->cluster (`cluster.servers`), VM->instance (`instance.servers` / `containers[].server.id`), disk->datastore (`datastoreId`), NIC->network.
 - `write_workbook()` / `write_sheet()`: Arial 10, dark-blue bold header, freeze `B2`, autofilter, auto widths (8-60), `#,##0` ints (not ID columns), `yyyy-mm-dd hh:mm` dates, vHealth rows shaded by severity, empty tabs show "No data returned".
 - Tabs: vInfo, vCPU, vMemory, vDisk, vNetwork, vSnapshot, vHost, vCluster, vDatastore, vNetworks, vInstance, vHealth, vSource; with `--raw`: raw_servers, raw_instances, raw_datastores.
-- CLI flags: `--url -u -p --token --insecure -o --no-snapshots --no-stats --raw --dump-json --from-json --snapshot-age --page-size --workers`; env vars `MORPHEUS_URL/USER/PASS/TOKEN`.
+- CLI flags: `--version --url -u -p --token --insecure -o --no-snapshots --no-stats --raw --dump-json --from-json --snapshot-age --page-size --workers`; env vars `MORPHEUS_URL/USER/PASS/TOKEN`.
 - Sizes in MiB (RVTools convention); dates UTC. Default output `HVMTools_<host>_<YYYYMMDD_HHMM>.xlsx`.
 
 ## Testing
-No live manager has been available during development; everything so far was tested only against the sample data:
+Verified against a live VME **9.1.0.1** lab (3 nested hosts on VMware, GFS2 + NFS + local datastores) on 2026-10-20. Offline test:
 ```
+python examples/generate_sample.py
 python hvmtools.py --from-json examples/sample-inventory.json -o /tmp/test.xlsx
 ```
-API field names were mapped from Morpheus API knowledge and may differ by VME version. Always use `first()`/`g()` fallbacks and confirm against `--raw` output from a real manager before changing mappings.
+9.1 field facts: hosts have `computeServerType.code=mvmHost, format=vmHypervisor` (no `vmHypervisor` bool); host hardware in `hardwareCpuModel/hardwareCpuFrequency/hardwareProductVendor/hardwareProductName` (vendor/name end in a newline); no serial field; datastore `type` is often `generic` - real type is `datastoreType.name`; NFS config `sourceHostname/sourceDirPath`, GFS2 config `blockDevice`; `/api/servers` list already includes `stats`. Older versions are untested; keep `first()`/`g()` fallbacks and confirm against `--raw` output before changing mappings.
+Real lab dumps contain hostnames, IPs and the user's email - keep them outside the repo (never commit them) and never put real data in docs or screenshots; use the generated sample.
 
 ## Open items / known issues
-1. **vMemory usage columns blank** (Consumed MiB, Free MiB, Usage %) on a real manager. Fix implemented but **not yet verified against a real manager** (tested with a stubbed client only): `collect()` calls `GET /api/servers/{id}` in the thread pool for servers missing `stats.usedMemory` and merges `server.stats` + top-level `stats` into the record; `build_sheets()` `stat()` falls back to instance stats for single-VM instances. Also feeds vCPU *CPU Usage %* and vInfo *In Use MiB*. If columns are still blank, check the stats field names in `raw_servers` / `raw_instances`.
-2. Validate datastore/GFS2 field mappings (Type, Address, Path) against a real `raw_datastores` sheet.
-3. Validate host hardware fields (CPU model, vendor, model, serial) against real `raw_servers`.
-4. Possible future work: zero-dependency/standalone packaging (stdlib-only rewrite, vendored zipapp, or PyInstaller) for air-gapped jump boxes.
+1. vMemory usage, datastore and host hardware mappings: verified on 9.1.0.1 (the 9.1 server list includes stats, so the `/api/servers/{id}` fallback path is still only stub-tested).
+2. vSnapshot field names (`snapshotCreated`, `snapshotType`, `state`, `currentlyActive`) are unverified - the lab had no snapshots.
+3. Possible future work: zero-dependency/standalone packaging (stdlib-only rewrite, vendored zipapp, or PyInstaller) for air-gapped jump boxes.
 
 ## Conventions
 - Keep it a single, readable script; tolerate missing fields rather than failing.

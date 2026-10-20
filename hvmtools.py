@@ -22,6 +22,7 @@ import datetime as dt
 import getpass
 import json
 import os
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
@@ -66,6 +67,13 @@ def to_int(v):
         return None
 
 
+def rnd(v, n=1):
+    try:
+        return round(float(v), n) if v not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
 def mib(b):
     n = to_int(b)
     return round(n / MIB) if n is not None else None
@@ -106,6 +114,10 @@ def fmt_tags(tags):
     return str(tags)
 
 
+def strip(v):
+    return v.strip() or None if isinstance(v, str) else v
+
+
 def name_of(obj):
     if isinstance(obj, dict):
         return first(obj.get("name"), obj.get("displayName"), obj.get("username"))
@@ -114,6 +126,24 @@ def name_of(obj):
 
 def log(msg):
     print(f"[{dt.datetime.now():%H:%M:%S}] {msg}", file=sys.stderr)
+
+
+SECRET_KEY_RE = re.compile(r"password|passwd|secret|token|apikey|api_key|privatekey|serviceaccess|servicecert",
+                           re.IGNORECASE)
+
+
+def redact(obj):
+    """Blank credential-like fields (sshPassword, apiKey, servicePasswordHash, ...) in place."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if SECRET_KEY_RE.search(str(k)) and v not in (None, "", [], {}):
+                obj[k] = "<redacted>"
+            else:
+                redact(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            redact(v)
+    return obj
 
 
 # --------------------------------------------------------------------------- API client
@@ -137,7 +167,10 @@ class MorpheusClient:
                         timeout=self.timeout)
         if r.status_code != 200:
             raise SystemExit(f"Login failed ({r.status_code}): {r.text[:300]}")
-        self.set_token(r.json()["access_token"])
+        try:
+            self.set_token(r.json()["access_token"])
+        except (ValueError, KeyError):
+            raise SystemExit(f"Login response from {self.url} had no access token - is this a VM Essentials manager?")
 
     def set_token(self, token):
         self.s.headers["Authorization"] = f"Bearer {token}"
@@ -183,7 +216,10 @@ class MorpheusClient:
 def collect(c, snapshots=True, stats=True, workers=8):
     inv = {"collected": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "manager": c.url}
     log("Connecting / ping")
-    inv["ping"] = c.get("/api/ping", quiet=True) or {}
+    try:  # not quiet: TLS / connection failures must stop the run, not yield an empty workbook
+        inv["ping"] = c.get("/api/ping") or {}
+    except requests.exceptions.HTTPError:
+        inv["ping"] = {}
     inv["whoami"] = c.get("/api/whoami", quiet=True) or {}
 
     log("Clouds")
@@ -202,6 +238,8 @@ def collect(c, snapshots=True, stats=True, workers=8):
     log("Servers (hosts + VMs)")
     inv["servers"] = c.list("/api/servers", "servers")
     log(f"  {len(inv['servers'])} servers")
+    if not inv["servers"]:
+        log("  warn: no servers returned - check the user's role has read access to Infrastructure")
 
     log("Instances")
     inv["instances"] = c.list("/api/instances", "instances")
@@ -276,7 +314,7 @@ def collect(c, snapshots=True, stats=True, workers=8):
             for iid, snaps in ex.map(snap, inv["instances"]):
                 if snaps:
                     inv["snapshots"][iid] = snaps
-    return inv
+    return redact(inv)
 
 
 # --------------------------------------------------------------------------- model building
@@ -294,7 +332,8 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
     # host classification
     parent_ids = {g(s, "parentServer", "id") for s in servers} - {None}
     host_ids = {s.get("id") for s in servers
-                if g(s, "computeServerType", "vmHypervisor") is True} | parent_ids
+                if g(s, "computeServerType", "vmHypervisor") is True
+                or g(s, "computeServerType", "format") == "vmHypervisor"} | parent_ids
     hosts = [s for s in servers if s.get("id") in host_ids]
     vms = [s for s in servers if s.get("id") not in host_ids]
 
@@ -306,7 +345,7 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
             host_cluster[sid] = cl.get("name")
 
     def cluster_of(s):
-        return first(name_of(s.get("cluster")),
+        return first(name_of(s.get("cluster")), name_of(s.get("serverGroup")),
                      host_cluster.get(s.get("id")),
                      host_cluster.get(g(s, "parentServer", "id")))
 
@@ -404,7 +443,8 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
             "OS Platform": s.get("platform"), "OS Version": s.get("platformVersion"),
             "Tags": fmt_tags(first(s.get("tags"), inst.get("tags"))),
             "Labels": ", ".join(first(s.get("labels"), inst.get("labels")) or []) or None,
-            "Managed": s.get("managed"), "Discovered": s.get("discovered"),
+            "Managed": first(s.get("managed"), g(s, "computeServerType", "managed")),
+            "Discovered": s.get("discovered"),
             "Server Type": g(s, "computeServerType", "name"),
             "VM ID": s.get("id"), "Instance ID": inst.get("id"),
             "External ID": s.get("externalId"), "UUID": s.get("uuid"), "Manager": manager,
@@ -413,7 +453,7 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
         rows["vCPU"].append({
             "VM": first(s.get("displayName"), s.get("name")), "Powerstate": ps, "CPUs": cores,
             "Sockets": (cores // cps) if cores and cps else None, "Cores per Socket": cps,
-            "CPU Usage %": to_int(cpu_use),
+            "CPU Usage %": rnd(cpu_use),
             "Plan": g(s, "plan", "name"), "OS": first(g(s, "serverOs", "name"), s.get("osType")), **common})
 
         rows["vMemory"].append({
@@ -452,7 +492,7 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
         if s.get("agentInstalled") is False and ps == "poweredOn":
             health.append({"Entity": s.get("name"), "Type": "VM", "Severity": "Warning",
                            "Message": "Morpheus agent not installed"})
-        if s.get("status") and str(s.get("status")).lower() not in ("provisioned", "running", "ok"):
+        if s.get("status") and str(s.get("status")).lower() not in ("provisioned", "running", "ok", "stopped"):
             health.append({"Entity": s.get("name"), "Type": "VM", "Severity": "Warning",
                            "Message": f"Status: {s.get('status')}"})
 
@@ -473,26 +513,33 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
             "Host": h.get("name"), "Cloud": cloud_name(h), "Cluster": cluster_of(h),
             "Status": h.get("status"), "Powerstate": power(h.get("powerState")),
             "IP Address": first(h.get("internalIp"), h.get("externalIp"), h.get("sshHost")),
-            "CPU Model": first(g(h, "hostInfo", "cpuModel"), h.get("cpuModel"), g(h, "config", "cpuModel")),
-            "# Sockets": first(to_int(h.get("maxCpu")), to_int(g(h, "hostInfo", "cpuSockets"))),
-            "# Cores": cores, "CPU Usage %": g(h, "stats", "cpuUsage"),
+            "CPU Model": strip(first(h.get("hardwareCpuModel"), g(h, "hostInfo", "cpuModel"), h.get("cpuModel"))),
+            "CPU MHz": to_int(h.get("hardwareCpuFrequency")),
+            "# Sockets": first(to_int(h.get("maxSockets")), to_int(h.get("maxCpu")),
+                               to_int(g(h, "hostInfo", "cpuSockets"))),
+            "# Cores": cores, "CPU Usage %": rnd(g(h, "stats", "cpuUsage")),
             "Memory MiB": mib(mem), "Memory Used MiB": mib(used), "Memory Usage %": pct(used, mem),
             "Storage MiB": mib(first(g(h, "stats", "maxStorage"), h.get("maxStorage"))),
             "Storage Used MiB": mib(first(g(h, "stats", "usedStorage"), h.get("usedStorage"))),
             "# NICs": len(h.get("interfaces") or []), "# VMs": st["vms"], "# VMs On": st["on"],
             "# vCPUs": st["vcpu"], "vCPUs per Core": round(st["vcpu"] / cores, 2) if cores else None,
             "vRAM MiB": mib(st["vram"]),
-            "OS": first(g(h, "serverOs", "name"), h.get("osType")), "OS Version": h.get("platformVersion"),
+            "OS": first(g(h, "serverOs", "name"), h.get("platform"), h.get("osType")),
+            "OS Version": h.get("platformVersion"),
             "Hypervisor": g(h, "computeServerType", "name"), "Agent Version": h.get("agentVersion"),
-            "Vendor": first(h.get("manufacturer"), g(h, "hostInfo", "manufacturer")),
-            "Model": first(h.get("model"), g(h, "hostInfo", "model")),
-            "Serial": first(h.get("serialNumber"), g(h, "hostInfo", "serialNumber")),
+            "Vendor": strip(first(h.get("hardwareProductVendor"), h.get("manufacturer"),
+                                  g(h, "hostInfo", "manufacturer"))),
+            "Model": strip(first(h.get("hardwareProductName"), h.get("model"), g(h, "hostInfo", "model"))),
+            "Maintenance": h.get("maintenanceMode"),
             "Creation date": parse_date(h.get("dateCreated")),
             "Host ID": h.get("id"), "External ID": h.get("externalId"), "UUID": h.get("uuid"),
             "Manager": manager})
         if h.get("status") and str(h.get("status")).lower() not in ("provisioned", "ok", "running"):
             health.append({"Entity": h.get("name"), "Type": "Host", "Severity": "Critical",
                            "Message": f"Host status: {h.get('status')}"})
+        if h.get("maintenanceMode"):
+            health.append({"Entity": h.get("name"), "Type": "Host", "Severity": "Info",
+                           "Message": "Host is in maintenance mode"})
         if pct(used, mem) and pct(used, mem) > 90:
             health.append({"Entity": h.get("name"), "Type": "Host", "Severity": "Warning",
                            "Message": f"Memory usage {pct(used, mem)}%"})
@@ -540,8 +587,10 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
         in_use = cap - free if cap and free is not None else None
         rows["vDatastore"].append({
             "Name": d.get("name"), "Display Name": d.get("displayName"),
-            "Type": first(name_of(d.get("type")) if isinstance(d.get("type"), dict) else d.get("type"),
-                          g(d, "datastoreType", "name"), g(d, "datastoreType", "code"), d.get("externalType")),
+            "Type": first(g(d, "datastoreType", "name"),
+                          name_of(d.get("type")) if isinstance(d.get("type"), dict) else
+                          (d.get("type") if d.get("type") != "generic" else None),
+                          g(d, "datastoreType", "code"), d.get("externalType")),
             "Status": first(d.get("status"), "online" if d.get("online") else None),
             "Accessible": d.get("online"), "Active": d.get("active"),
             "Capacity MiB": mib(cap), "Provisioned MiB": mib(u["prov"]),
@@ -551,10 +600,12 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
             "# Hosts": len(d_hosts) or None, "Hosts": ", ".join(d_hosts) or None,
             "Cluster": ", ".join(c for c in d_clusters if c) or None,
             "Cloud": first(g(d, "zone", "name"), g(d, "cloud", "name")),
-            "Address": first(cfg.get("sourceHost"), cfg.get("host"), cfg.get("serverHost"),
-                             cfg.get("target"), cfg.get("portal")),
-            "Path / URL": first(d.get("externalPath"), cfg.get("exportFolder"), cfg.get("sourceDir"),
-                                cfg.get("path"), cfg.get("mountPath")),
+            "Address": first(cfg.get("sourceHostname"), cfg.get("sourceHost"), cfg.get("host"),
+                             cfg.get("serverHost"), cfg.get("target"), cfg.get("portal")),
+            "Source": first(cfg.get("sourceDirPath"), cfg.get("exportFolder"), cfg.get("sourceDir"),
+                            cfg.get("blockDevice")),
+            "Path / URL": first(d.get("externalPath"), cfg.get("targetPath"), cfg.get("path"),
+                                cfg.get("mountPath")),
             "Category": d.get("category"), "Visibility": d.get("visibility"),
             "Default": d.get("defaultStore"), "Allow Provision": d.get("allowProvision"),
             "Heartbeat Target": d.get("heartbeatTarget"),
@@ -580,7 +631,8 @@ def build_sheets(inv, snapshot_age_days=7, ds_free_pct=10):
     # ---- Instances
     for i in instances:
         srv_ids = [x.get("id") if isinstance(x, dict) else x for x in i.get("servers") or []]
-        conn = ", ".join(str(ci.get("ip")) for ci in i.get("connectionInfo") or [] if ci.get("ip")) or None
+        conn = ", ".join(str(ci.get("ip")) for ci in i.get("connectionInfo") or []
+                         if ci.get("ip") not in (None, "", "0.0.0.0")) or None
         rows["vInstance"].append({
             "Instance": i.get("name"), "Display Name": i.get("displayName"), "Status": i.get("status"),
             "Instance Type": g(i, "instanceType", "name"), "Layout": g(i, "layout", "name"),
@@ -716,6 +768,7 @@ def write_workbook(rows, path, inv=None, raw=False):
 # --------------------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser(description="RVTools-style Excel inventory for HPE Morpheus VM Essentials")
+    ap.add_argument("--version", action="version", version=f"HVMTools {__version__}")
     ap.add_argument("--url", default=os.getenv("MORPHEUS_URL"), help="Manager URL, e.g. https://hvm-mgr")
     ap.add_argument("-u", "--username", default=os.getenv("MORPHEUS_USER"))
     ap.add_argument("-p", "--password", default=os.getenv("MORPHEUS_PASS"), help="Prompted if omitted")
@@ -734,7 +787,7 @@ def main():
 
     if a.from_json:
         with open(a.from_json, encoding="utf-8") as f:
-            inv = json.load(f)
+            inv = redact(json.load(f))
     else:
         if not a.url:
             ap.error("--url is required (or set MORPHEUS_URL)")
@@ -758,5 +811,24 @@ def main():
     log(f"Wrote {out}: " + ", ".join(f"{k}={len(v)}" for k, v in rows.items() if k != "vSource"))
 
 
+def run():
+    try:
+        main()
+    except KeyboardInterrupt:
+        raise SystemExit("Interrupted.")
+    except requests.exceptions.SSLError as e:
+        raise SystemExit(f"TLS error: {e}\nIf the manager uses a self-signed certificate, add --insecure.")
+    except requests.exceptions.ConnectionError as e:
+        raise SystemExit(f"Cannot connect to the manager: {e}\nCheck --url, DNS and that port 443 is reachable.")
+    except requests.exceptions.Timeout:
+        raise SystemExit("The manager did not respond in time.")
+    except requests.exceptions.HTTPError as e:
+        raise SystemExit(f"API error: {e}")
+    except PermissionError as e:
+        raise SystemExit(f"Cannot access {e.filename}: permission denied (if it's the workbook, is it open in Excel?)")
+    except (OSError, json.JSONDecodeError) as e:
+        raise SystemExit(f"Error: {e}")
+
+
 if __name__ == "__main__":
-    main()
+    run()
