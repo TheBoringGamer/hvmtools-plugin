@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- Native Groovy/JVM cluster-tab plugin development preview in `plugin/`, targeting
+  HPE VM Essentials 9.1.0.1, with inventory preview and Excel download; no Python
+  runtime required on the appliance.
+- Cluster-scoped inventory, user-session API collection, an explicit plugin read
+  permission, CSRF-protected report requests, credential redaction and raw-sheet
+  options. Shared datastore capacity and cross-cluster instance metadata retain
+  their underlying resource scope.
+- Pinned Gradle wrapper, JDK 17 build instructions, JVM/browser tests and
+  fixed-clock workbook parity checks against the unchanged Python exporter.
+
+### Notes
+- The plugin is offline-tested only. SDK compatibility, session authentication,
+  tab integration, permissions and downloads need live appliance validation.
+
 ## [1.0.0] - 2026-10-20
 
 First public release. Verified against a live HPE VM Essentials 9.1.0.1 manager.

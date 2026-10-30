@@ -1,0 +1,99 @@
+plugins {
+    id 'groovy'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+group = 'com.hvmtools'
+version = '0.1.0'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+dependencies {
+    compileOnly 'com.morpheusdata:morpheus-plugin-api:1.2.14'
+    compileOnly 'javax.servlet:javax.servlet-api:3.1.0'
+    compileOnly 'org.codehaus.groovy:groovy:3.0.13'
+    compileOnly 'org.codehaus.groovy:groovy-json:3.0.13'
+    implementation 'org.apache.poi:poi-ooxml:5.4.1'
+
+    testImplementation 'com.morpheusdata:morpheus-plugin-api:1.2.14'
+    testImplementation 'javax.servlet:javax.servlet-api:3.1.0'
+    testImplementation 'org.codehaus.groovy:groovy:3.0.13'
+    testImplementation 'org.codehaus.groovy:groovy-json:3.0.13'
+    testImplementation 'org.spockframework:spock-core:2.3-groovy-3.0'
+}
+
+// Groovy and the SDK are supplied by the appliance, not bundled in the plugin.
+configurations.compileOnly {
+    exclude group: 'org.codehaus.groovy', module: 'groovy-all'
+}
+
+jar {
+    manifest {
+        attributes(
+            'Plugin-Class': 'com.hvmtools.HvmToolsPlugin',
+            'Plugin-Version': project.version,
+            'Morpheus-Name': 'HVMTools',
+            'Morpheus-Organization': 'HVMTools',
+            'Morpheus-Code': 'hvmtools-plugin',
+            'Morpheus-Description': 'Cluster-scoped inventory preview and Excel export',
+            'Morpheus-Min-Appliance-Version': '9.1.0'
+        )
+    }
+}
+
+shadowJar {
+    archiveClassifier = 'all'
+    mergeServiceFiles()
+}
+
+test {
+    useJUnitPlatform()
+    testLogging { exceptionFormat = 'full' }
+}
+
+assemble.dependsOn shadowJar
+
+processResources {
+    inputs.file('src/main/js/cluster-tab.js')
+    filesMatching('renderer/hbs/clusterTab.hbs') {
+        filter { line -> line == '@HVMTOOLS_SCRIPT@' ? file('src/main/js/cluster-tab.js').text : line }
+    }
+}
+
+tasks.register('browserTest', Exec) {
+    commandLine 'node', '--test', 'src/test/js/cluster-tab.test.js'
+}
+
+check.dependsOn browserTest
+
+tasks.register('generateOracle', Exec) {
+    commandLine 'python3', 'src/test/python/workbook_parity.py', 'generate'
+}
+
+tasks.register('parityTest', Test) {
+    dependsOn generateOracle, testClasses
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    environment 'HVMTOOLS_ORACLE_JSON', file('build/parity/oracle.json').absolutePath
+    inputs.file('build/parity/oracle.json')
+    outputs.dir('build/parity/native')
+    filter {
+        includeTestsMatching 'com.hvmtools.ParitySpec'
+        includeTestsMatching 'com.hvmtools.report.*'
+    }
+    testLogging { exceptionFormat = 'full' }
+}
+
+tasks.register('workbookParity', Exec) {
+    dependsOn parityTest
+    commandLine 'python3', 'src/test/python/workbook_parity.py', 'compare'
+}

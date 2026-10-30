@@ -10,6 +10,10 @@ HVMTools connects to an HPE VM Essentials manager through the Morpheus REST API,
 
 Use it for VMware-to-VME migration assessments, capacity planning, audits, health checks and as-built documentation.
 
+**Morpheus cluster plugin:** a native JVM development preview adds a cluster-level
+inventory tab and Excel download. See [plugin build, installation and validation](plugin/README.md).
+The CLI below remains unchanged; the plugin still requires live appliance validation.
+
 ![The vInfo tab of an HVMTools workbook open in Excel](docs/images/vinfo.jpg)
 
 <sub>Screenshots use the bundled fictional sample environment: 2 clouds, 4 clusters, 17 hosts, 109 VMs.</sub>

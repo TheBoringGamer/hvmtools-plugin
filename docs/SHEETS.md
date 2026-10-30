@@ -22,6 +22,17 @@ Conventions used below:
 
 A blank cell means the manager did not return that field for the object.
 
+### Cluster plugin
+
+The [native plugin](../plugin/README.md) uses these same tabs and mappings, scoped
+to the selected cluster and its related inventory. Shared datastore capacity/free
+space remains global, while disk/VM counts and provisioned totals reflect only
+the selected cluster. Instance and snapshot metadata can span clusters because
+snapshots belong to instances. Raw instance membership references are retained to
+avoid attributing multi-VM usage totals to a single VM. `vSource` counts reflect the
+scoped report; manager-version and user fields are blank in the plugin collector.
+The plugin has offline parity tests but has not yet been verified on a live appliance.
+
 ---
 
 ## vInfo — one row per VM

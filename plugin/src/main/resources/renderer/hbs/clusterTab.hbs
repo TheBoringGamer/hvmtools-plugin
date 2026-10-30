@@ -1,0 +1,28 @@
+<section class="hvmtools-panel" data-cluster-id="{{id}}">
+    <h2>HVMTools: {{name}}</h2>
+    <p>Read-only inventory of this cluster. Collection uses your current session and API permissions.
+        No API token or Python installation is required.</p>
+    <p>Shared datastore capacity is global; VM, disk and provisioned totals are scoped to this cluster.
+        Multi-cluster instances retain their instance-wide metadata.</p>
+    <label><input type="checkbox" data-option="snapshots" checked> Include snapshots</label>
+    <label><input type="checkbox" data-option="stats" checked> Fetch missing usage statistics</label>
+    <label><input type="checkbox" data-option="raw"> Include redacted raw sheets</label>
+    <label>Snapshot warning age (days)
+        <input type="number" data-option="snapshotAge" value="7" min="1" max="3650">
+    </label>
+    <p>
+        <button type="button" class="btn btn-primary" data-action="preview">Collect and preview</button>
+        <button type="button" class="btn btn-default" data-action="download" disabled>Download Excel</button>
+    </p>
+    <p role="status" aria-live="polite" data-role="status">Ready. Click Collect and preview to begin.</p>
+    <label>Worksheet <select data-role="sheet" disabled></select></label>
+    <p data-role="count"></p>
+    <div data-role="preview" style="overflow:auto;max-height:32rem"></div>
+    <p>
+        <button type="button" data-action="previous" disabled>Previous</button>
+        <button type="button" data-action="next" disabled>Next</button>
+    </p>
+    <script nonce="{{nonce}}">
+@HVMTOOLS_SCRIPT@
+    </script>
+</section>
