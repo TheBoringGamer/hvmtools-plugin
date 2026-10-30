@@ -1,18 +1,35 @@
-# HVMTools
+# HVMTools Plugin
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Plugin target: VME 9.1](https://img.shields.io/badge/plugin%20target-VME%209.1-01a982.svg)
 ![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)
-![VME 9.1 verified](https://img.shields.io/badge/HPE%20VM%20Essentials-9.1%20verified-01a982.svg)
 
-**RVTools-style inventory reports for HPE Morpheus VM Essentials (VME / HVM).**
+**Cluster-level inventory preview and RVTools-style Excel reports, directly in HPE Morpheus VM Essentials (VME / HVM).**
 
-HVMTools connects to an HPE VM Essentials manager through the Morpheus REST API, collects a full inventory of the environment, and writes it to a single Excel workbook laid out like an RVTools export. Each object type gets its own tab and each object its own row, with filters and frozen headers ready for sorting, pivoting, and handing to a customer or colleague.
+This fork adds an **HVMTools** tab to the cluster details page. Collect inventory
+for the selected cluster, preview its worksheets in the browser, and download an
+Excel workbook with hosts, VMs, storage, networks, snapshots and health findings.
+The plugin is native Groovy/JVM code: **Python is not required on the appliance**.
 
-Use it for VMware-to-VME migration assessments, capacity planning, audits, health checks and as-built documentation.
+The original **Python command-line exporter is retained**, including its
+manager-wide inventory collection and offline workbook generation. Choose the
+plugin for cluster-level reporting in the UI, or the CLI for scripts, jump boxes
+and full-environment exports.
 
-**Morpheus cluster plugin:** a native JVM development preview adds a cluster-level
-inventory tab and Excel download. See [plugin build, installation and validation](plugin/README.md).
-The CLI below remains unchanged; the plugin still requires live appliance validation.
+Use either for VMware-to-VME migration assessments, capacity planning, audits,
+health checks and as-built documentation.
+
+**Attribution:** this project is forked from
+[grahamfairbank/hvmtools](https://github.com/grahamfairbank/hvmtools), created by
+**Graham Fairbank**. The original exporter, inventory mappings, workbook design,
+sample data and documentation provide the foundation for this plugin.
+See [Attribution and license](#attribution-and-license).
+
+**Status:** first plugin version, targeting **HPE VM Essentials 9.1.0.1**.
+Initial use has been reported working; automated tests also compare its output
+with the original Python exporter using fictional data. This is a community
+project, not a vendor-certified plugin or a claim of compatibility with every
+Morpheus/VME version.
 
 ![The vInfo tab of an HVMTools workbook open in Excel](docs/images/vinfo.jpg)
 
@@ -22,18 +39,157 @@ The CLI below remains unchanged; the plugin still requires live appliance valida
 
 ## Contents
 
-- [Features](#features)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Quick start](#quick-start)
-- [Usage](#usage)
+- [Plugin overview](#plugin-overview)
+- [Install the plugin](#install-the-plugin)
+- [Use the cluster tab](#use-the-cluster-tab)
+- [Plugin scope and limitations](#plugin-scope-and-limitations)
+- [Python CLI](#python-cli)
+  - [Features](#features)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Quick start](#quick-start)
+  - [Usage](#usage)
 - [What's in the workbook](#whats-in-the-workbook)
 - [Documentation](#documentation)
 - [Security](#security)
 - [Known limitations](#known-limitations)
 - [Contributing](#contributing)
+- [Attribution and license](#attribution-and-license)
 
 ---
+
+## Plugin overview
+
+- **A tab on each cluster:** generate a report without leaving the Morpheus UI.
+- **Inventory preview:** select any of the 13 worksheets and browse 100 rows at a
+  time before downloading the complete workbook.
+- **Excel output:** familiar tabs, filters, frozen headers, UTC dates, MiB units
+  and severity-coloured health findings, following the original exporter.
+- **Collection options:** include snapshots, fetch missing usage statistics,
+  adjust the snapshot-age warning threshold and add redacted raw sheets.
+- **Current-user access:** inventory reads use your signed-in browser session
+  and its API permissions, not a stored administrator token.
+- **Read-only inventory:** no infrastructure resources are changed. Plugin POST
+  requests only render the preview or workbook.
+
+| | Cluster plugin | Python CLI |
+|---|---|---|
+| Entry point | HVMTools tab on a cluster | `python hvmtools.py` |
+| Report scope | Selected cluster and related inventory | Entire inventory visible to the API account |
+| Authentication | Signed-in browser session | Username/password or API token |
+| Runtime | Native JVM plugin in the appliance | Python with `requests` and `openpyxl` |
+| Offline JSON rebuild | Not exposed in the tab | `--dump-json` / `--from-json` |
+
+## Install the plugin
+
+### 1. Build the plugin JAR
+
+On your development machine, install **JDK 17** and set `JAVA_HOME` to its
+installation directory. A global Gradle installation is not needed: the included
+wrapper downloads the pinned version. The first build needs internet access to
+download Gradle and Maven dependencies.
+
+```bash
+git clone https://github.com/TheBoringGamer/hvmtools-plugin.git
+cd hvmtools-plugin/plugin
+
+# Linux example; adjust this path for your JDK installation.
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+export PATH="$JAVA_HOME/bin:$PATH"
+
+./gradlew shadowJar --no-daemon
+```
+
+On Windows, set `JAVA_HOME` to JDK 17 and use `gradlew.bat`.
+
+The installable file is:
+
+```text
+plugin/build/libs/hvmtools-plugin-0.1.0-all.jar
+```
+
+Use the **`-all.jar`**, which bundles the workbook dependencies, not a thin JAR.
+Neither Python nor Node.js is required just to build the installable JAR. For
+development tests and workbook parity checks, see the
+[plugin build guide](plugin/README.md#build-environment).
+
+### 2. Upload it to Morpheus
+
+1. Sign in to your VME appliance with an account allowed to manage plugins.
+2. Open **Administration → Integrations → Plugins**. Navigation labels can vary
+   by appliance version.
+3. Upload `hvmtools-plugin-0.1.0-all.jar` and confirm that **HVMTools** loads.
+   If it fails, check the appliance plugin logs for SDK or class-loading errors.
+4. Grant the reporting role **HVMTools cluster inventory: Read**. This plugin
+   permission defaults to no access.
+5. Ensure the role also has read access to the relevant clusters, servers,
+   instances, clouds, groups, networks and datastores, plus snapshots if enabled.
+
+No separate Python environment, API token or service-account credentials need to
+be configured on the appliance.
+
+## Use the cluster tab
+
+1. Open a cluster under **Infrastructure** and select its **HVMTools** tab.
+2. Choose your report options:
+   - **Include snapshots:** collect snapshots for related instances.
+   - **Fetch missing usage statistics:** query server details when list responses
+     omit usage metrics.
+   - **Include redacted raw sheets:** add `raw_servers`, `raw_instances` and
+     `raw_datastores` to the downloaded workbook.
+   - **Snapshot warning age:** flag snapshots older than this many days;
+     the default is **7**.
+3. Click **Collect and preview** and wait for collection to finish.
+4. Select a worksheet from the dropdown. Use **Previous** and **Next** to page
+   through its rows.
+5. Click **Download Excel**. The workbook includes all rows, not just the current
+   preview page.
+6. Open the workbook and start with **vSource** for collection details and
+   **vHealth** for findings.
+
+The download uses the inventory you just collected. Collect again to refresh the
+data, or after changing snapshot, statistics or warning-age options.
+
+If the tab is missing, check the plugin and role permission. If collection fails,
+check the displayed error, your session and API read permissions. The plugin
+stops on failed or denied inventory reads rather than producing a misleading
+empty workbook.
+
+## Plugin scope and limitations
+
+- Hosts, VMs and their related resources are scoped to the **selected cluster**.
+  Unused datastores attached to the cluster are included too.
+- **Shared datastore capacity/free space is global.** VM/disk counts and
+  provisioned storage totals reflect the selected cluster.
+- **Instances and snapshots can span clusters.** Snapshots are an instance-level
+  resource; instance metadata and raw membership references may include VMs
+  outside the selected cluster.
+- `vSource` counts describe the scoped report. Manager-version and current-user
+  fields are blank in plugin exports because the collector does not query them.
+- Some API lists are read across the user's visible inventory and then filtered.
+  Large environments can take longer to collect.
+- Preview/export run in memory. Inventory input is limited to **25 MiB**;
+  appliance/proxy request-size and timeout limits may be lower.
+- Use a trusted HTTPS browser session. The plugin relies on Morpheus session
+  authentication and CSRF protection; it has no TLS-bypass option.
+- Workbooks contain infrastructure details even after credential redaction.
+  Keep exports private and do not commit real inventory or reports.
+
+See the [plugin guide](plugin/README.md) for implementation details, compatibility
+considerations and the full deployment-validation checklist.
+
+---
+
+## Python CLI
+
+The original single-file exporter, `hvmtools.py`, remains available and unchanged.
+It connects to an HPE VM Essentials manager through the Morpheus REST API,
+collects the full inventory visible to its account, and writes a single
+RVTools-style Excel workbook. Each object type gets its own tab and each object
+its own row, ready for sorting, filtering and sharing.
+
+The following requirements, commands and flags apply to the **Python CLI**, not
+the cluster tab.
 
 ## Features
 
@@ -62,8 +218,8 @@ Verified against HPE VM Essentials **9.1.0.1**. See [Compatibility](docs/HOW-IT-
 ## Installation
 
 ```bash
-git clone https://github.com/grahamfairbank/hvmtools.git
-cd hvmtools
+git clone https://github.com/TheBoringGamer/hvmtools-plugin.git
+cd hvmtools-plugin
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -225,6 +381,7 @@ See **[docs/SHEETS.md](docs/SHEETS.md)** for every column and where its data com
 
 | Document | Contents |
 |---|---|
+| [plugin/README.md](plugin/README.md) | Native plugin build environment, installation, scope, limitations and validation |
 | [docs/USING-THE-WORKBOOK.md](docs/USING-THE-WORKBOOK.md) | Recipes: health check, migration assessment, right-sizing, capacity review, snapshot hygiene |
 | [docs/SHEETS.md](docs/SHEETS.md) | Column-by-column reference for every tab, with the API field each value comes from |
 | [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md) | Authentication, API endpoints, compatibility, how hosts/VMs/clusters/datastores are matched, redaction, error handling |
@@ -235,6 +392,11 @@ See **[docs/SHEETS.md](docs/SHEETS.md)** for every column and where its data com
 ---
 
 ## Security
+
+For the plugin, inventory reads use your existing browser session, report POSTs
+use Morpheus CSRF protection, and credential-like fields are redacted before
+submission and again on the server. No separate login credentials are stored.
+The authentication flags and environment-variable guidance below apply to the CLI.
 
 - Credentials are used only to obtain an OAuth access token from the manager. They are never written to disk or to the workbook.
 - Credential-like fields the API returns (each server's agent `apiKey`, `sshPassword`, `sshPasswordHash`, cluster service passwords and tokens) are replaced with `<redacted>` in `--raw` sheets and `--dump-json` files.
@@ -259,14 +421,31 @@ See **[docs/SHEETS.md](docs/SHEETS.md)** for every column and where its data com
 
 Issues and pull requests are welcome. When reporting a blank or incorrect column, please include:
 
-1. Your VME version (shown on the `vSource` tab as *Build Version*).
-2. The relevant row from the `raw_*` sheet produced with `--raw`, with hostnames, IPs and other sensitive values removed.
+1. Whether you used the plugin or the Python CLI, and your VME version. For CLI
+   exports, this is shown on `vSource` as *Build Version*; for the plugin, check
+   the appliance version directly.
+2. The relevant row from a `raw_*` sheet, with hostnames, IPs and other sensitive
+   values removed. Enable **Include redacted raw sheets** in the plugin or use
+   `--raw` with the CLI.
 
 If you add a column, update [docs/SHEETS.md](docs/SHEETS.md) and [CHANGELOG.md](CHANGELOG.md), and add the field to `examples/generate_sample.py` so the sample exercises it.
 
 ---
 
-## License
+## Attribution and license
+
+The original **HVMTools** project was created by **Graham Fairbank**:
+
+- Original repository: [grahamfairbank/hvmtools](https://github.com/grahamfairbank/hvmtools).
+- This fork: [TheBoringGamer/hvmtools-plugin](https://github.com/TheBoringGamer/hvmtools-plugin).
+- Original copyright: **Copyright (c) 2026 Graham Fairbank**.
+
+This fork adds the native Morpheus cluster-tab integration, browser preview,
+cluster-scoped collection and JVM workbook generation. It retains the original
+Python exporter and documentation, and builds on the original author's inventory
+mappings, report structure and sample environment. The plugin is a derivative
+community implementation, not a claim that the original author maintains or
+endorses this fork.
 
 HVMTools is released under the [MIT License](LICENSE). You are free to use, modify and distribute it, including for commercial work, provided the copyright notice is kept. The software is provided "as is", without warranty of any kind.
 
