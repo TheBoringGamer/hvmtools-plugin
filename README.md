@@ -1,10 +1,13 @@
 # HVMTools Plugin
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Plugin target: VME 9.1](https://img.shields.io/badge/plugin%20target-VME%209.1-01a982.svg)
+![Plugin target: HPE Morpheus 9.1](https://img.shields.io/badge/plugin%20target-HPE%20Morpheus%209.1-01a982.svg)
 ![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)
 
-**Cluster-level inventory preview and RVTools-style Excel reports, directly in HPE Morpheus VM Essentials (VME / HVM).**
+**Cluster-level inventory preview and RVTools-style Excel reports, directly in HPE Morpheus.**
+
+**Terminology:** HPE Morpheus is the management appliance where the plugin is
+installed and used. HVM refers to the hypervisor hosts managed by that appliance.
 
 This fork adds an **HVMTools** tab to the cluster details page. Collect inventory
 for the selected cluster, preview its worksheets in the browser, and download an
@@ -16,7 +19,7 @@ manager-wide inventory collection and offline workbook generation. Choose the
 plugin for cluster-level reporting in the UI, or the CLI for scripts, jump boxes
 and full-environment exports.
 
-Use either for VMware-to-VME migration assessments, capacity planning, audits,
+Use either for VMware-to-HVM migration assessments, capacity planning, audits,
 health checks and as-built documentation.
 
 **Attribution:** this project is forked from
@@ -25,11 +28,11 @@ health checks and as-built documentation.
 sample data and documentation provide the foundation for this plugin.
 See [Attribution and license](#attribution-and-license).
 
-**Status:** first plugin version, targeting **HPE VM Essentials 9.1.0.1**.
+**Status:** first plugin version, targeting **HPE Morpheus 9.1.0.1**.
 Initial use has been reported working; automated tests also compare its output
 with the original Python exporter using fictional data. This is a community
 project, not a vendor-certified plugin or a claim of compatibility with every
-Morpheus/VME version.
+HPE Morpheus version.
 
 ![The vInfo tab of an HVMTools workbook open in Excel](docs/images/vinfo.jpg)
 
@@ -115,7 +118,7 @@ development tests and workbook parity checks, see the
 
 ### 2. Upload it to Morpheus
 
-1. Sign in to your VME appliance with an account allowed to manage plugins.
+1. Sign in to your HPE Morpheus management appliance with an account allowed to manage plugins.
 2. Open **Administration → Integrations → Plugins**. Navigation labels can vary
    by appliance version.
 3. Upload `hvmtools-plugin-0.1.0-all.jar` and confirm that **HVMTools** loads.
@@ -183,7 +186,7 @@ considerations and the full deployment-validation checklist.
 ## Python CLI
 
 The original single-file exporter, `hvmtools.py`, remains available and unchanged.
-It connects to an HPE VM Essentials manager through the Morpheus REST API,
+It connects to an HPE Morpheus management appliance through the Morpheus REST API,
 collects the full inventory visible to its account, and writes a single
 RVTools-style Excel workbook. Each object type gets its own tab and each object
 its own row, ready for sorting, filtering and sharing.
@@ -208,10 +211,10 @@ the cluster tab.
 ## Requirements
 
 - Python 3.8 or newer, on Windows, macOS or Linux
-- HTTPS (443) access from the machine running the tool to the VME manager
-- A VME user account (or API token) with read access to Infrastructure (clouds, clusters, hosts, VMs), Provisioning (instances), Networks and Storage. A read-only role is enough.
+- HTTPS (443) access from the machine running the tool to the HPE Morpheus management appliance
+- An HPE Morpheus user account (or API token) with read access to Infrastructure (clouds, clusters, hosts, VMs), Provisioning (instances), Networks and Storage. A read-only role is enough.
 
-Verified against HPE VM Essentials **9.1.0.1**. See [Compatibility](docs/HOW-IT-WORKS.md#compatibility).
+Verified against HPE Morpheus **9.1.0.1**. See [Compatibility](docs/HOW-IT-WORKS.md#compatibility).
 
 ---
 
@@ -257,7 +260,7 @@ python hvmtools.py --url https://hvm-manager.example.com -u svc-inventory --inse
 
 **3. Open the workbook** and start with **vSource** (what was collected, from where and when) and **vHealth** (anything that needs attention). [Using the workbook](docs/USING-THE-WORKBOOK.md) walks through migration, capacity and health-check recipes.
 
-Using an API access token (*User Settings → API Access* in the VME UI) instead of a password:
+Using an API access token (*User Settings → API Access* in the HPE Morpheus UI) instead of a password:
 
 ```bash
 python hvmtools.py --url https://hvm-manager.example.com --token <ACCESS_TOKEN>
@@ -348,7 +351,7 @@ python hvmtools.py --url https://hvm-mgr -u svc-inventory --snapshot-age 30
 | `vDisk` | VM disk | Capacity, used, boot disk, device, controller, datastore, storage type |
 | `vNetwork` | VM NIC | Network, VLAN, IPv4/IPv6, MAC, adapter type, primary flag |
 | `vSnapshot` | Snapshot | Instance, name, created date, age in days, type, state |
-| `vHost` | Hypervisor host | CPU model, sockets, cores, memory, usage, VM count, vCPU:core ratio, vRAM, OS, vendor/model, maintenance mode |
+| `vHost` | HVM host | CPU model, sockets, cores, memory, usage, VM count, vCPU:core ratio, vRAM, OS, vendor/model, maintenance mode |
 | `vCluster` | Cluster | Hosts, VMs, total cores and memory, allocated vCPU and vRAM |
 | `vDatastore` | Datastore | Type (GFS2 shared LUN, NFS, local), capacity, free, provisioned %, NFS server/export or LUN device, hosts, cluster |
 | `vNetworks` | Network | CIDR, gateway, DNS, VLAN, DHCP, IP pool, NIC count |
@@ -409,7 +412,7 @@ The authentication flags and environment-variable guidance below apply to the CL
 
 ## Known limitations
 
-- Field names in the Morpheus API can vary between VME versions. Columns your version doesn't return are left blank rather than failing; run with `--raw` to see exactly what your manager returns.
+- Field names in the Morpheus API can vary between HPE Morpheus versions. Columns your version doesn't return are left blank rather than failing; run with `--raw` to see exactly what your manager returns.
 - Usage figures (consumed memory, CPU usage %, used disk) are a single point-in-time sample reported by the manager.
 - The 9.1 API doesn't expose host serial numbers, guest partitions, or physical NIC/HBA detail, so there are no columns for them.
 - Snapshot collection makes one API call per instance; use `--no-snapshots` if this is slow.
@@ -421,7 +424,7 @@ The authentication flags and environment-variable guidance below apply to the CL
 
 Issues and pull requests are welcome. When reporting a blank or incorrect column, please include:
 
-1. Whether you used the plugin or the Python CLI, and your VME version. For CLI
+1. Whether you used the plugin or the Python CLI, and your HPE Morpheus version. For CLI
    exports, this is shown on `vSource` as *Build Version*; for the plugin, check
    the appliance version directly.
 2. The relevant row from a `raw_*` sheet, with hostnames, IPs and other sensitive
